@@ -1,0 +1,159 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { verifySessionFromRequest } from '@/lib/session';
+import { queryOne, query } from '@/lib/db';
+import { Exercise, UserSubtitleConfig, ParsedSubtitle } from '@/lib/types';
+import { downloadFile } from '@/lib/cos-client';
+import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
+
+interface ExerciseWithSubtitles extends Exercise {
+  videoUrl: string;
+  subtitles: ParsedSubtitle[];
+  userConfig?: UserSubtitleConfig | null;
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { exerciseId: string } }
+) {
+  try {
+    // Verify authentication
+    const session = verifySessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const { exerciseId } = params;
+
+    // Fetch exercise
+    const exercise = await queryOne<Exercise>(
+      'SELECT * FROM Exercise WHERE exerciseId = ?',
+      [exerciseId]
+    );
+
+    if (!exercise) {
+      return NextResponse.json(
+        { error: 'Exercise not found' },
+        { status: 404 }
+      );
+    }
+
+    // Construct video URL from COS
+    const videoUrl = `${process.env.COS_URL || 'https://cos.example.com'}/${exercise.videoUrl}`;
+
+    // Fetch subtitles from COS
+    let subtitles: ParsedSubtitle[] = [];
+    try {
+      const subtitleContent = await downloadFile(exercise.subtitlePath);
+      const format = detectSubtitleFormat(exercise.subtitlePath);
+
+      if (format && subtitleContent) {
+        subtitles = parseSubtitles(subtitleContent, format);
+      }
+    } catch (error) {
+      console.error('Error fetching subtitles:', error);
+      // Continue without subtitles if fetch fails
+    }
+
+    // Fetch user's subtitle configuration
+    const userConfig = await queryOne<UserSubtitleConfig>(
+      'SELECT * FROM UserSubtitleConfig WHERE userId = ? AND exerciseId = ?',
+      [session.userId, exerciseId]
+    );
+
+    // Apply user's subtitle configuration (merge/skip)
+    let processedSubtitles = subtitles;
+
+    if (userConfig && subtitles.length > 0) {
+      // Get merged groups and skipped sentences from JSON columns
+      const mergedGroups = userConfig.mergedGroups ? JSON.parse(userConfig.mergedGroups) : [];
+      const skippedSentences = userConfig.skippedSentences
+        ? JSON.parse(userConfig.skippedSentences)
+        : [];
+
+      // Apply merged groups
+      if (mergedGroups.length > 0) {
+        processedSubtitles = applyMergedGroups(processedSubtitles, mergedGroups);
+      }
+
+      // Apply skipped sentences
+      if (skippedSentences.length > 0) {
+        processedSubtitles = processedSubtitles.filter(
+          (sub) => !skippedSentences.includes(sub.index - 1)
+        );
+      }
+    }
+
+    const result: ExerciseWithSubtitles = {
+      ...exercise,
+      videoUrl,
+      subtitles: processedSubtitles,
+      userConfig: userConfig || null,
+    };
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: result,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Get practice data error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Apply merged groups to subtitles
+ * Combines multiple subtitles into single entries
+ */
+function applyMergedGroups(
+  subtitles: ParsedSubtitle[],
+  mergedGroups: Array<{ start: number; end: number; label?: string }>
+): ParsedSubtitle[] {
+  const result: ParsedSubtitle[] = [];
+  const merged = new Set<number>();
+
+  // Process merged groups
+  for (const group of mergedGroups) {
+    const groupSubtitles = subtitles.filter(
+      (sub) => sub.index - 1 >= group.start && sub.index - 1 <= group.end
+    );
+
+    if (groupSubtitles.length > 0) {
+      const mergedText = groupSubtitles.map((s) => s.text).join('\n');
+      const startTime = groupSubtitles[0].startTime;
+      const endTime = groupSubtitles[groupSubtitles.length - 1].endTime;
+
+      result.push({
+        index: result.length + 1,
+        startTime,
+        endTime,
+        text: mergedText,
+      });
+
+      // Mark these indices as merged
+      for (let i = group.start; i <= group.end; i++) {
+        merged.add(i);
+      }
+    }
+  }
+
+  // Add non-merged subtitles
+  for (const sub of subtitles) {
+    if (!merged.has(sub.index - 1)) {
+      result.push({
+        ...sub,
+        index: result.length + 1,
+      });
+    }
+  }
+
+  return result;
+}
