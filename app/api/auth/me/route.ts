@@ -1,22 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionFromRequest, requireAuth } from '@/lib/session';
-import { queryOne } from '@/lib/db';
+import { verifySessionFromRequest } from '@/lib/session';
+import { initializeDatabase, queryOne } from '@/lib/db';
 import { User } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
+    await initializeDatabase();
+    
+    // Verify authentication from request headers
     const session = verifySessionFromRequest(request);
+    
     if (!session) {
-      // Check if requireAuth returns a NextResponse
-      const authResult = await requireAuth(request);
-      if (authResult instanceof NextResponse) {
-        return authResult;
-      }
-    }
-
-    const session_verified = session || (typeof authResult !== 'undefined' && !(authResult instanceof NextResponse) ? authResult : null);
-    if (!session_verified) {
+      console.error('Session verification failed');
       return NextResponse.json(
         { error: 'Unauthorized: Authentication required' },
         { status: 401 }
@@ -25,8 +20,8 @@ export async function GET(request: NextRequest) {
 
     // Get full user profile from database
     const user = await queryOne<User>(
-      'SELECT userId, email, role, createdDate, lastLoginDate FROM User WHERE userId = ?',
-      [session_verified.userId]
+      'SELECT userId, email, role, registrationDate, lastLoginDate FROM User WHERE userId = ?',
+      [session.userId]
     );
 
     if (!user) {
@@ -43,7 +38,7 @@ export async function GET(request: NextRequest) {
           userId: user.userId,
           email: user.email,
           role: user.role,
-          createdDate: user.createdDate,
+          registrationDate: user.registrationDate,
           lastLoginDate: user.lastLoginDate,
         },
       },

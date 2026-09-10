@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionFromRequest } from '@/lib/session';
-import { query, queryOne } from '@/lib/db';
+import { initializeDatabase, query, queryOne } from '@/lib/db';
 import { Series, Season, Episode, Exercise, UserExerciseProgress } from '@/lib/types';
 
 // Define hierarchy types
@@ -24,6 +24,8 @@ interface SeriesInHierarchy extends Series {
 
 export async function GET(request: NextRequest) {
   try {
+    await initializeDatabase();
+    
     // Verify authentication
     const session = verifySessionFromRequest(request);
     if (!session) {
@@ -78,12 +80,9 @@ export async function GET(request: NextRequest) {
           let exerciseQuery = 'SELECT * FROM Exercise WHERE episodeId = ?';
           const exerciseParams: any[] = [episode.episodeId];
 
-          if (search) {
-            exerciseQuery += ' AND title LIKE ?';
-            exerciseParams.push(`%${search}%`);
-          }
-
-          exerciseQuery += ' ORDER BY title';
+          // Note: Exercise table doesn't have a 'title' column
+          // Sort by createdDate instead
+          exerciseQuery += ' ORDER BY createdDate';
 
           const exercises = await query<Exercise>(exerciseQuery, exerciseParams);
 

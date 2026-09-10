@@ -3,11 +3,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { hashPassword, validatePasswordStrength, validateEmail } from '@/lib/auth';
 import { validateCode, markCodeAsUsed, getInvitationCodeByString } from '@/lib/invitation-codes';
 import { setSessionCookie, generateJWT } from '@/lib/auth';
-import { execute, queryOne } from '@/lib/db';
+import { initializeDatabase, execute, queryOne } from '@/lib/db';
 import { User } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
   try {
+    // Initialize database
+    await initializeDatabase();
+
     const body = await request.json();
     const { email, password, passwordConfirm, invitationCode } = body;
 
@@ -72,8 +75,8 @@ export async function POST(request: NextRequest) {
     // Create user
     const userId = uuidv4();
     await execute(
-      `INSERT INTO User (userId, email, passwordHash, role, createdDate) 
-       VALUES (?, ?, ?, ?, NOW())`,
+      `INSERT INTO User (userId, email, passwordHash, role) 
+       VALUES (?, ?, ?, ?)`,
       [userId, email, hashedPassword, 'user']
     );
 

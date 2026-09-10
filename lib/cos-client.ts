@@ -106,6 +106,11 @@ export async function uploadFile(
  * @returns File content as Buffer
  */
 export async function downloadFile(key: string): Promise<Buffer> {
+  // Ensure client is initialized
+  if (!cosClient) {
+    initializeCosClient();
+  }
+  
   const client = getCosClient();
   const bucket = getBucketName();
   const region = getRegion();
@@ -228,7 +233,7 @@ export function getSignedUrl(key: string, expireSeconds: number = 3600): string 
   const region = getRegion();
 
   try {
-    return client.getObjectUrl(
+    const signedUrl = client.getObjectUrl(
       {
         Bucket: bucket,
         Region: region,
@@ -241,7 +246,15 @@ export function getSignedUrl(key: string, expireSeconds: number = 3600): string 
           console.error(`❌ Failed to generate signed URL for ${key}:`, err);
         }
       }
-    ) || '';
+    );
+    
+    if (!signedUrl) {
+      console.error(`❌ getObjectUrl returned empty string for key: ${key}`);
+      return '';
+    }
+    
+    console.log(`✅ Generated signed URL for ${key}: ${signedUrl.substring(0, 100)}...`);
+    return signedUrl;
   } catch (error) {
     console.error(`❌ Error generating signed URL for ${key}:`, error);
     return '';

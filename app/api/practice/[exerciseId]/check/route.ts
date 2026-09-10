@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionFromRequest } from '@/lib/session';
-import { queryOne } from '@/lib/db';
+import { initializeDatabase, queryOne } from '@/lib/db';
 import { Exercise } from '@/lib/types';
 import { checkAccuracy } from '@/lib/accuracy';
 import { downloadFile } from '@/lib/cos-client';
@@ -8,9 +8,13 @@ import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { exerciseId: string } }
+  { params }: { params: Promise<{ exerciseId: string }> }
 ) {
   try {
+    await initializeDatabase();
+    
+    const { exerciseId } = await params;
+    
     // Verify authentication
     const session = verifySessionFromRequest(request);
     if (!session) {
@@ -30,8 +34,6 @@ export async function POST(
       );
     }
 
-    const { exerciseId } = params;
-
     // Fetch exercise
     const exercise = await queryOne<Exercise>(
       'SELECT * FROM Exercise WHERE exerciseId = ?',
@@ -48,11 +50,12 @@ export async function POST(
     // Fetch subtitles from COS
     let subtitles: any[] = [];
     try {
-      const subtitleContent = await downloadFile(exercise.subtitlePath);
-      const format = detectSubtitleFormat(exercise.subtitlePath);
+      const subtitleContent = await downloadFile(exercise.subtitleUrl);
+      const format = detectSubtitleFormat(exercise.subtitleUrl);
 
       if (format && subtitleContent) {
-        subtitles = parseSubtitles(subtitleContent, format);
+        const contentStr = typeof subtitleContent === 'string' ? subtitleContent : subtitleContent.toString('utf-8');
+        subtitles = parseSubtitles(contentStr, format);
       }
     } catch (error) {
       console.error('Error fetching subtitles:', error);

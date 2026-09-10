@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS Episode (
 CREATE TABLE IF NOT EXISTS Exercise (
   exerciseId CHAR(36) PRIMARY KEY COMMENT 'UUID',
   episodeId CHAR(36) NOT NULL COMMENT 'Reference to Episode',
+  title VARCHAR(255) NOT NULL COMMENT 'Exercise title (distinguishes multiple exercises in same episode)',
   videoUrl VARCHAR(500) NOT NULL COMMENT 'Full URL to video on Tencent COS',
   subtitleUrl VARCHAR(500) NOT NULL COMMENT 'Full URL to subtitle file on Tencent COS',
   subtitleFormat ENUM('srt', 'vtt', 'ssa', 'ass') NOT NULL COMMENT 'Subtitle file format',

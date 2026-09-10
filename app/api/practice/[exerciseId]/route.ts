@@ -1,21 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionFromRequest } from '@/lib/session';
-import { queryOne, query } from '@/lib/db';
-import { Exercise, UserSubtitleConfig, ParsedSubtitle } from '@/lib/types';
-import { downloadFile } from '@/lib/cos-client';
+import { initializeDatabase, queryOne, query } from '@/lib/db';
+import { Exercise, UserSubtitleConfig, ParsedSubtitle, UserExerciseProgress } from '@/lib/types';
+import { downloadFile, getSignedUrl } from '@/lib/cos-client';
 import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
 
 interface ExerciseWithSubtitles extends Exercise {
   videoUrl: string;
   subtitles: ParsedSubtitle[];
   userConfig?: UserSubtitleConfig | null;
+  userProgress?: {
+    currentSentenceIndex: number;
+    isCompleted: boolean;
+  } | null;
 }
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { exerciseId: string } }
+  { params }: { params: Promise<{ exerciseId: string }> }
 ) {
   try {
+    await initializeDatabase();
+    
     // Verify authentication
     const session = verifySessionFromRequest(request);
     if (!session) {
@@ -25,7 +31,8 @@ export async function GET(
       );
     }
 
-    const { exerciseId } = params;
+    // Await params to unwrap the Promise (Next.js 16+)
+    const { exerciseId } = await params;
 
     // Fetch exercise
     const exercise = await queryOne<Exercise>(
@@ -40,17 +47,22 @@ export async function GET(
       );
     }
 
-    // Construct video URL from COS
-    const videoUrl = `${process.env.COS_URL || 'https://cos.example.com'}/${exercise.videoUrl}`;
+    // Generate proxy URL for video with auth token
+    // Client will add token query parameter when fetching
+    const videoUrl = `/api/video/${exercise.videoUrl}`;
 
     // Fetch subtitles from COS
     let subtitles: ParsedSubtitle[] = [];
     try {
-      const subtitleContent = await downloadFile(exercise.subtitlePath);
-      const format = detectSubtitleFormat(exercise.subtitlePath);
+      const subtitleContent = await downloadFile(exercise.subtitleUrl);
+      const format = detectSubtitleFormat(exercise.subtitleUrl);
 
       if (format && subtitleContent) {
-        subtitles = parseSubtitles(subtitleContent, format);
+        // Convert Buffer to string
+        const contentStr = typeof subtitleContent === 'string' 
+          ? subtitleContent 
+          : subtitleContent.toString('utf-8');
+        subtitles = parseSubtitles(contentStr, format);
       }
     } catch (error) {
       console.error('Error fetching subtitles:', error);
@@ -60,6 +72,12 @@ export async function GET(
     // Fetch user's subtitle configuration
     const userConfig = await queryOne<UserSubtitleConfig>(
       'SELECT * FROM UserSubtitleConfig WHERE userId = ? AND exerciseId = ?',
+      [session.userId, exerciseId]
+    );
+
+    // Fetch user's exercise progress
+    const userProgress = await queryOne<UserExerciseProgress>(
+      'SELECT * FROM UserExerciseProgress WHERE userId = ? AND exerciseId = ?',
       [session.userId, exerciseId]
     );
 
@@ -83,6 +101,12 @@ export async function GET(
         processedSubtitles = processedSubtitles.filter(
           (sub) => !skippedSentences.includes(sub.index - 1)
         );
+        
+        // Re-index after filtering to maintain correct array positions
+        processedSubtitles = processedSubtitles.map((sub, idx) => ({
+          ...sub,
+          index: idx + 1,
+        }));
       }
     }
 
@@ -91,6 +115,13 @@ export async function GET(
       videoUrl,
       subtitles: processedSubtitles,
       userConfig: userConfig || null,
+      userProgress: userProgress ? {
+        currentSentenceIndex: userProgress.currentSentenceIndex,
+        isCompleted: userProgress.isCompleted,
+      } : {
+        currentSentenceIndex: 0,
+        isCompleted: false,
+      },
     };
 
     return NextResponse.json(
@@ -130,11 +161,15 @@ function applyMergedGroups(
       const mergedText = groupSubtitles.map((s) => s.text).join('\n');
       const startTime = groupSubtitles[0].startTime;
       const endTime = groupSubtitles[groupSubtitles.length - 1].endTime;
+      const startSeconds = groupSubtitles[0].startSeconds;
+      const endSeconds = groupSubtitles[groupSubtitles.length - 1].endSeconds;
 
       result.push({
         index: result.length + 1,
         startTime,
         endTime,
+        startSeconds,
+        endSeconds,
         text: mergedText,
       });
 

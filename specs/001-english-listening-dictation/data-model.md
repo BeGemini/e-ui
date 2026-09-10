@@ -148,8 +148,7 @@ CREATE TABLE Episode (
 | Field | Type | Constraints | Description |
 |-------|------|-----------|-------------|
 | exerciseId | UUID | PRIMARY KEY | Unique identifier |
-| episodeId | UUID | FOREIGN KEY | Reference to Episode |
-| videoUrl | VARCHAR(500) | NOT NULL | Full URL to video on Tencent COS |
+| episodeId | UUID | FOREIGN KEY | Reference to Episode || title | VARCHAR(255) | NOT NULL | Exercise title (distinguishes multiple exercises in same episode) || videoUrl | VARCHAR(500) | NOT NULL | Full URL to video on Tencent COS |
 | subtitleUrl | VARCHAR(500) | NOT NULL | Full URL to subtitle file on Tencent COS |
 | subtitleFormat | ENUM('srt', 'vtt', 'ssa', 'ass') | NOT NULL | Subtitle file format |
 | totalSentences | INT | NOT NULL | Total subtitle sentences (computed at creation) |
@@ -168,6 +167,7 @@ CREATE TABLE Episode (
 CREATE TABLE Exercise (
   exerciseId CHAR(36) PRIMARY KEY,
   episodeId CHAR(36) NOT NULL,
+  title VARCHAR(255) NOT NULL,
   videoUrl VARCHAR(500) NOT NULL,
   subtitleUrl VARCHAR(500) NOT NULL,
   subtitleFormat ENUM('srt', 'vtt', 'ssa', 'ass') NOT NULL,

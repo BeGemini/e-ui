@@ -116,6 +116,7 @@ async function seedDatabase() {
           // Create 2 exercises per episode
           for (let exNum = 1; exNum <= 2; exNum++) {
             const exerciseId = uuidv4();
+            const exerciseTitle = exNum === 1 ? 'Full Version' : 'Simplified Version';
             const videoUrl = `https://english-listening-dev.cos.ap-beijing.myqcloud.com/videos/${seriesData.title
               .replace(/\s+/g, '-')
               .toLowerCase()}-s${seasonNum}e${episodeNum}-ex${exNum}.mp4`;
@@ -124,11 +125,12 @@ async function seedDatabase() {
               .toLowerCase()}-s${seasonNum}e${episodeNum}-ex${exNum}.srt`;
 
             await execute(
-              `INSERT INTO Exercise (exerciseId, episodeId, videoUrl, subtitleUrl, subtitleFormat, totalSentences, durationSeconds, difficulty) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              `INSERT INTO Exercise (exerciseId, episodeId, title, videoUrl, subtitleUrl, subtitleFormat, totalSentences, durationSeconds, difficulty) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 exerciseId,
                 episodeId,
+                exerciseTitle,
                 videoUrl,
                 subtitleUrl,
                 'srt',

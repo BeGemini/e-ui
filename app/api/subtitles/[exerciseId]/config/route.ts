@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { verifySessionFromRequest } from '@/lib/session';
-import { queryOne, execute } from '@/lib/db';
+import { initializeDatabase, queryOne, execute } from '@/lib/db';
 import { UserExerciseProgress, UserSubtitleConfig, Exercise } from '@/lib/types';
 
 /**
@@ -10,9 +10,11 @@ import { UserExerciseProgress, UserSubtitleConfig, Exercise } from '@/lib/types'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { exerciseId: string } }
+  { params }: { params: Promise<{ exerciseId: string }> }
 ) {
   try {
+    await initializeDatabase();
+    
     // Verify authentication
     const session = verifySessionFromRequest(request);
     if (!session) {
@@ -22,7 +24,7 @@ export async function GET(
       );
     }
 
-    const { exerciseId } = params;
+    const { exerciseId } = await params;
 
     // Get user's progress for this exercise to know currentProgress
     const progress = await queryOne<UserExerciseProgress>(
@@ -74,9 +76,13 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { exerciseId: string } }
+  { params }: { params: Promise<{ exerciseId: string }> }
 ) {
   try {
+    await initializeDatabase();
+    
+    const { exerciseId } = await params;
+    
     // Verify authentication
     const session = verifySessionFromRequest(request);
     if (!session) {
@@ -88,8 +94,6 @@ export async function PUT(
 
     const body = await request.json();
     const { mergedGroups, skippedSentences } = body;
-
-    const { exerciseId } = params;
 
     // Get user's progress to enforce read-only constraint
     const progress = await queryOne<UserExerciseProgress>(
@@ -211,9 +215,13 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { exerciseId: string } }
+  { params }: { params: Promise<{ exerciseId: string }> }
 ) {
   try {
+    await initializeDatabase();
+    
+    const { exerciseId } = await params;
+    
     // Verify authentication
     const session = verifySessionFromRequest(request);
     if (!session) {
@@ -222,8 +230,6 @@ export async function DELETE(
         { status: 401 }
       );
     }
-
-    const { exerciseId } = params;
 
     // Reset config to defaults
     await execute(

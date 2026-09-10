@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyJWT, extractTokenFromHeader } from './lib/auth';
 
 // Define protected routes
 const protectedRoutes = ['/api/exercises', '/api/auth/me', '/api/practice', '/api/subtitles'];
@@ -9,20 +8,22 @@ export function middleware(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route));
 
   if (isProtectedRoute) {
-    // Extract token from Authorization header
+    // Just check if Authorization header exists
+    // Actual JWT verification will happen in the route handlers (which run in Node.js runtime)
     const authHeader = request.headers.get('authorization');
-    const token = extractTokenFromHeader(authHeader);
-
-    // Verify token
-    if (!token || !verifyJWT(token)) {
+    
+    if (!authHeader) {
+      console.log(`[Middleware] Missing Authorization header for ${request.nextUrl.pathname}`);
       return NextResponse.json(
-        { error: 'Unauthorized: Valid token required' },
+        { error: 'Unauthorized: Missing Authorization header' },
         { status: 401 }
       );
     }
+    
+    console.log(`[Middleware] Authorization header present for ${request.nextUrl.pathname}`);
   }
 
-  // Allow request to proceed
+  // Allow request to proceed to route handler for verification
   return NextResponse.next();
 }
 

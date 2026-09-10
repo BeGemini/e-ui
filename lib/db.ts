@@ -92,7 +92,7 @@ export async function execute(
 /**
  * Get a single row from query result
  */
-export async function queryOne<T extends RowDataPacket>(
+export async function queryOne<T = RowDataPacket>(
   sql: string,
   values?: (string | number | boolean | null)[]
 ): Promise<T | null> {

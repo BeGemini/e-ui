@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { verifySessionFromRequest } from '@/lib/session';
-import { queryOne, execute, query } from '@/lib/db';
+import { initializeDatabase, queryOne, execute, query } from '@/lib/db';
 import { UserExerciseProgress, UserDictationAttempt, UserSubtitleConfig } from '@/lib/types';
 
 interface SaveProgressRequest {
@@ -14,9 +14,11 @@ interface SaveProgressRequest {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { exerciseId: string } }
+  { params }: { params: Promise<{ exerciseId: string }> }
 ) {
   try {
+    await initializeDatabase();
+    
     // Verify authentication
     const session = verifySessionFromRequest(request);
     if (!session) {
@@ -36,7 +38,7 @@ export async function POST(
       );
     }
 
-    const { exerciseId } = params;
+    const { exerciseId } = await params;
 
     // Get user's progress for this exercise
     let progress = await queryOne<UserExerciseProgress>(

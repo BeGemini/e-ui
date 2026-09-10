@@ -60,6 +60,7 @@ export interface Episode {
 export interface Exercise {
   exerciseId: string;
   episodeId: string;
+  title: string;
   videoUrl: string;
   subtitleUrl: string;
   subtitleFormat: 'srt' | 'vtt' | 'ssa' | 'ass';
@@ -106,8 +107,8 @@ export interface UserSubtitleConfig {
   configId: string;
   userId: string;
   exerciseId: string;
-  mergedGroups: MergeGroup[];
-  skippedSentences: number[];
+  mergedGroups: string; // JSON string in database
+  skippedSentences: string; // JSON string in database
   createdDate: Date;
   updatedDate: Date;
 }

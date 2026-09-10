@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPassword, generateJWT, validateEmail } from '@/lib/auth';
-import { execute, queryOne } from '@/lib/db';
+import { initializeDatabase, execute, queryOne } from '@/lib/db';
 import { User } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
   try {
+    await initializeDatabase();
     const body = await request.json();
     const { email, password } = body;
 

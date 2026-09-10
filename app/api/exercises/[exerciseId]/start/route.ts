@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { verifySessionFromRequest } from '@/lib/session';
-import { queryOne, execute } from '@/lib/db';
+import { initializeDatabase, queryOne, execute } from '@/lib/db';
 import { Exercise, UserExerciseProgress } from '@/lib/types';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { exerciseId: string } }
+  { params }: { params: Promise<{ exerciseId: string }> }
 ) {
   try {
+    await initializeDatabase();
+    
+    const { exerciseId } = await params;
+    
     // Verify authentication
     const session = verifySessionFromRequest(request);
     if (!session) {
@@ -17,8 +21,6 @@ export async function POST(
         { status: 401 }
       );
     }
-
-    const { exerciseId } = params;
 
     // Check if exercise exists
     const exercise = await queryOne<Exercise>(
@@ -54,8 +56,8 @@ export async function POST(
     // Create new progress record
     const progressId = uuidv4();
     await execute(
-      `INSERT INTO UserExerciseProgress (progressId, userId, exerciseId, currentSentenceIndex, isCompleted, startedDate)
-       VALUES (?, ?, ?, 0, 0, NOW())`,
+      `INSERT INTO UserExerciseProgress (progressId, userId, exerciseId, currentSentenceIndex, isCompleted)
+       VALUES (?, ?, ?, 0, 0)`,
       [progressId, session.userId, exerciseId]
     );
 

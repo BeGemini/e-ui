@@ -25,6 +25,10 @@ export default function ExerciseDetail({ exercise }: ExerciseDetailProps) {
     router.push(`/dashboard/${exercise.exerciseId}/practice`);
   };
 
+  const handleViewDetails = () => {
+    router.push(`/dashboard/${exercise.exerciseId}`);
+  };
+
   const isStarted = (exercise.currentProgress ?? 0) > 0;
   const isCompleted = exercise.completed;
   const progressPercent =
@@ -36,13 +40,16 @@ export default function ExerciseDetail({ exercise }: ExerciseDetailProps) {
     <div className="rounded-md border p-3 hover:bg-muted/50 transition-colors">
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium truncate">{exercise.title}</span>
+          <button
+            onClick={handleViewDetails}
+            className="text-left hover:text-blue-600 focus:text-blue-600 transition-colors w-full flex items-center gap-2"
+          >
+            <span className="text-sm font-medium truncate underline">{exercise.title}</span>
             {isCompleted && <Badge className="bg-green-100 text-green-800 text-xs">Completed</Badge>}
             {isStarted && !isCompleted && (
               <Badge className="bg-blue-100 text-blue-800 text-xs">In Progress</Badge>
             )}
-          </div>
+          </button>
           {isStarted && !isCompleted && (
             <div className="mt-2 space-y-1">
               <Progress value={progressPercent} className="h-1.5" />

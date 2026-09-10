@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionFromRequest } from '@/lib/session';
-import { queryOne, query } from '@/lib/db';
+import { initializeDatabase, queryOne, query } from '@/lib/db';
 import { UserExerciseProgress, UserDictationAttempt } from '@/lib/types';
 
 const LAST_ATTEMPTS_LIMIT = 10;
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { exerciseId: string } }
+  { params }: { params: Promise<{ exerciseId: string }> }
 ) {
   try {
+    await initializeDatabase();
+    
     // Verify authentication
     const session = verifySessionFromRequest(request);
     if (!session) {
@@ -19,7 +21,7 @@ export async function GET(
       );
     }
 
-    const { exerciseId } = params;
+    const { exerciseId } = await params;
 
     // Fetch user's progress for this exercise
     const progress = await queryOne<UserExerciseProgress>(
