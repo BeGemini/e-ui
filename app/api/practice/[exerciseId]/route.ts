@@ -86,10 +86,17 @@ export async function GET(
 
     if (userConfig && subtitles.length > 0) {
       // Get merged groups and skipped sentences from JSON columns
-      const mergedGroups = userConfig.mergedGroups ? JSON.parse(userConfig.mergedGroups) : [];
-      const skippedSentences = userConfig.skippedSentences
-        ? JSON.parse(userConfig.skippedSentences)
-        : [];
+      // MySQL JSON fields are already parsed, so check if they're strings or objects
+      const mergedGroupsRaw = userConfig.mergedGroups;
+      const skippedSentencesRaw = userConfig.skippedSentences;
+      
+      const mergedGroups = typeof mergedGroupsRaw === 'string' 
+        ? (mergedGroupsRaw ? JSON.parse(mergedGroupsRaw) : [])
+        : (Array.isArray(mergedGroupsRaw) ? mergedGroupsRaw : []);
+        
+      const skippedSentences = typeof skippedSentencesRaw === 'string'
+        ? (skippedSentencesRaw ? JSON.parse(skippedSentencesRaw) : [])
+        : (Array.isArray(skippedSentencesRaw) ? skippedSentencesRaw : []);
 
       // Apply merged groups
       if (mergedGroups.length > 0) {
@@ -132,9 +139,16 @@ export async function GET(
       { status: 200 }
     );
   } catch (error) {
-    console.error('Get practice data error:', error);
+    console.error('Get practice data error:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      type: typeof error,
+    });
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

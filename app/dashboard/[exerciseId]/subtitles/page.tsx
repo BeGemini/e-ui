@@ -53,22 +53,65 @@ export default function SubtitleEditorPage() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
+        
+        // Get auth token
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Authentication required');
+        }
+
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        };
 
         // Get practice data for subtitles
-        const practiceRes = await fetch(`/api/practice/${exerciseId}`);
-        if (!practiceRes.ok) throw new Error('Failed to load practice data');
+        const practiceRes = await fetch(`/api/practice/${exerciseId}`, { headers });
+        if (!practiceRes.ok) {
+          const errorData = await practiceRes.json().catch(() => ({}));
+          console.error('Practice API error:', {
+            status: practiceRes.status,
+            statusText: practiceRes.statusText,
+            error: errorData,
+          });
+          throw new Error(`Failed to load practice data (${practiceRes.status})`);
+        }
         const practiceData = await practiceRes.json();
-        setSubtitles(practiceData.subtitles);
-        setUserProgress(practiceData.userProgress);
+        console.log('Practice data loaded:', {
+          hasData: 'data' in practiceData,
+          hasSubtitles: practiceData.data?.subtitles?.length || 0,
+          hasProgress: !!practiceData.data?.userProgress,
+        });
+        setSubtitles(practiceData.data?.subtitles || []);
+        setUserProgress(practiceData.data?.userProgress || null);
 
         // Get config
-        const configRes = await fetch(`/api/subtitles/${exerciseId}/config`);
-        if (!configRes.ok) throw new Error('Failed to load config');
+        const configRes = await fetch(`/api/subtitles/${exerciseId}/config`, { headers });
+        if (!configRes.ok) {
+          const errorData = await configRes.json().catch(() => ({}));
+          console.error('Config API error:', {
+            status: configRes.status,
+            statusText: configRes.statusText,
+            error: errorData,
+          });
+          throw new Error(`Failed to load config (${configRes.status})`);
+        }
         const configData = await configRes.json();
-        setConfig(configData);
-        setMergeGroups(configData.mergedGroups || []);
-        setSkippedSentences(configData.skippedSentences || []);
+        console.log('Config data loaded:', {
+          hasConfig: !!configData.config,
+          mergedGroups: configData.config?.mergedGroups?.length || 0,
+          skippedSentences: configData.config?.skippedSentences?.length || 0,
+        });
+        setConfig(configData.config);
+        
+        // Parse JSON fields from database
+        const mergedGroups = configData.config?.mergedGroups;
+        const skippedSentences = configData.config?.skippedSentences;
+        
+        setMergeGroups(Array.isArray(mergedGroups) ? mergedGroups : []);
+        setSkippedSentences(Array.isArray(skippedSentences) ? skippedSentences : []);
       } catch (error) {
+        console.error('Fetch data error:', error);
         toast({
           title: 'Error',
           description: error instanceof Error ? error.message : 'Failed to load data',
@@ -82,7 +125,7 @@ export default function SubtitleEditorPage() {
     if (exerciseId) {
       fetchData();
     }
-  }, [exerciseId, toast]);
+  }, [exerciseId]);
 
   const handleSelectForMerge = (index: number, selected: boolean) => {
     setSelectedForMerge((prev) =>
@@ -138,11 +181,17 @@ export default function SubtitleEditorPage() {
   const handleSaveConfig = async () => {
     try {
       setIsSaving(true);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
 
       const response = await fetch(`/api/subtitles/${exerciseId}/config`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           mergedGroups,
@@ -177,9 +226,17 @@ export default function SubtitleEditorPage() {
   const handleReset = async () => {
     try {
       setIsSaving(true);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
 
       const response = await fetch(`/api/subtitles/${exerciseId}/config`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       if (!response.ok) {
