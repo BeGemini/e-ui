@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { VideoPlayer } from '@/app/components/video-player/VideoPlayer';
 import { DictationInput } from '@/app/components/dictation/DictationInput';
 import { WordFeedbackDisplay } from '@/app/components/dictation/WordFeedbackDisplay';
-import { AccuracyBadge } from '@/app/components/dictation/AccuracyBadge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -165,16 +164,19 @@ export default function PracticePage() {
     }
   };
 
-  // Handle moving to next sentence
-  const handleSentenceEnd = async (sentenceIndex: number) => {
-    if (!practiceData || !currentFeedback) {
-      // Auto-advance even without feedback if video auto-paused
-      await advanceToNextSentence(sentenceIndex);
-      return;
-    }
+  // Handle moving to next sentence (video auto-paused at end)
+  const handleSentenceEnd = async (
+    sentenceIndex: number,
+    reason: 'auto' | 'skip' = 'auto'
+  ) => {
+    if (!practiceData) return;
 
-    // Save progress before moving to next
-    await saveProgress(sentenceIndex, currentFeedback.accuracy);
+    if (reason === 'skip') {
+      // User explicitly skipped this sentence; save progress and advance
+      await saveProgress(sentenceIndex, 0);
+    }
+    // For normal auto-pause at the end of a sentence, stay on the current
+    // sentence so the user can type their dictation and check it.
   };
 
   const advanceToNextSentence = async (completedIndex: number) => {
@@ -194,12 +196,14 @@ export default function PracticePage() {
   };
 
   const saveProgress = async (sentenceIndex: number, accuracy: number) => {
+    if (!practiceData || !currentSubtitle) return;
+
     try {
       setIsSavingProgress(true);
       const token = localStorage.getItem('token');
 
       const isCompleted =
-        sentenceIndex >= practiceData!.subtitles.length - 1;
+        sentenceIndex >= practiceData.subtitles.length - 1;
 
       const response = await fetch(`/api/practice/${exerciseId}/save-progress`, {
         method: 'POST',
@@ -210,6 +214,9 @@ export default function PracticePage() {
         body: JSON.stringify({
           sentenceIndex,
           accuracy,
+          userInput: userInput.trim(),
+          correctText: currentSubtitle.text,
+          wordFeedback: currentFeedback?.wordFeedback ?? [],
           isCompleted,
         }),
       });
@@ -302,13 +309,6 @@ export default function PracticePage() {
             onSentenceEnd={handleSentenceEnd}
           />
         </div>
-
-        {/* Accuracy Badge (if feedback exists) */}
-        {currentFeedback && (
-          <div className="flex justify-center">
-            <AccuracyBadge accuracy={currentFeedback.accuracy} size="lg" />
-          </div>
-        )}
 
         {/* Dictation Input */}
         <DictationInput

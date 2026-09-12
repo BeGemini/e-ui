@@ -1,4 +1,10 @@
-import { WordFeedback } from './types';
+export type WordFeedbackStatus = 'correct' | 'typo' | 'wrong';
+
+export interface WordFeedback {
+  word: string;
+  userWord: string;
+  status: WordFeedbackStatus;
+}
 
 /**
  * Calculate Levenshtein distance between two strings
@@ -91,43 +97,42 @@ export function checkWordAccuracy(
 export function checkAccuracy(userInput: string, correctText: string): {
   accuracy: number;
   wordFeedback: WordFeedback[];
-  summary: { correct: number; acceptable: number; wrong: number; total: number };
+  summary: { correct: number; typo: number; wrong: number; total: number };
 } {
   const userTokens = tokenizeText(userInput);
   const correctTokens = tokenizeText(correctText);
 
   const wordFeedback: WordFeedback[] = [];
   let correctCount = 0;
-  let acceptableCount = 0;
+  let typoCount = 0;
   let wrongCount = 0;
 
   // Compare each correct word with user's input
   for (let i = 0; i < correctTokens.length; i++) {
-    const correctWord = correctTokens[i];
+    const word = correctTokens[i];
     const userWord = userTokens[i];
 
     if (!userWord) {
       // User didn't provide this word
       wordFeedback.push({
-        index: i,
         userWord: '',
-        correctWord,
+        word,
         status: 'wrong',
       });
       wrongCount++;
     } else {
-      const status = checkWordAccuracy(userWord, correctWord);
+      const rawStatus = checkWordAccuracy(userWord, word);
+      const status: WordFeedbackStatus = rawStatus === 'acceptable' ? 'typo' : rawStatus;
       wordFeedback.push({
-        index: i,
         userWord,
-        correctWord,
+        word,
         status,
       });
 
       if (status === 'correct') {
         correctCount++;
-      } else if (status === 'acceptable') {
-        acceptableCount++;
+      } else if (status === 'typo') {
+        typoCount++;
       } else {
         wrongCount++;
       }
@@ -138,9 +143,8 @@ export function checkAccuracy(userInput: string, correctText: string): {
   if (userTokens.length > correctTokens.length) {
     for (let i = correctTokens.length; i < userTokens.length; i++) {
       wordFeedback.push({
-        index: i,
         userWord: userTokens[i],
-        correctWord: '',
+        word: '',
         status: 'wrong',
       });
       wrongCount++;
@@ -148,7 +152,7 @@ export function checkAccuracy(userInput: string, correctText: string): {
   }
 
   const total = correctTokens.length;
-  const scoredWords = correctCount + acceptableCount;
+  const scoredWords = correctCount + typoCount;
   const accuracy = total > 0 ? Math.round((scoredWords / total) * 100) : 0;
 
   return {
@@ -156,7 +160,7 @@ export function checkAccuracy(userInput: string, correctText: string): {
     wordFeedback,
     summary: {
       correct: correctCount,
-      acceptable: acceptableCount,
+      typo: typoCount,
       wrong: wrongCount,
       total,
     },

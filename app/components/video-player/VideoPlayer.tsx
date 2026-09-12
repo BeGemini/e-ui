@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Play, Pause, RotateCcw, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -16,7 +16,7 @@ interface VideoPlayerProps {
     endTime: string;
   }>;
   currentSentenceIndex: number;
-  onSentenceEnd: (sentenceIndex: number) => void;
+  onSentenceEnd: (sentenceIndex: number, reason: 'auto' | 'skip') => void;
   onTimeUpdate?: (currentTime: number) => void;
 }
 
@@ -28,21 +28,24 @@ export function VideoPlayer({
   onTimeUpdate,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const pendingSeekRef = useRef<number | null>(null);
+  const pendingPlayRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [autoAdvanceIndex, setAutoAdvanceIndex] = useState(currentSentenceIndex);
   const [videoUrlWithToken, setVideoUrlWithToken] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Add token to video URL
+  // Add token to video URL. Reading localStorage must happen in an effect
+  // to avoid SSR/hydration mismatches.
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (videoUrl && token) {
       const urlWithToken = `${videoUrl}?token=${encodeURIComponent(token)}`;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVideoUrlWithToken(urlWithToken);
     } else {
-      // Fallback to original URL if token not available
       setVideoUrlWithToken(videoUrl);
     }
   }, [videoUrl]);
@@ -50,63 +53,130 @@ export function VideoPlayer({
   // Get current subtitle (API already filters skipped ones)
   const currentSubtitle = currentSentenceIndex < subtitles.length ? subtitles[currentSentenceIndex] : null;
 
-  // Auto-pause when subtitle ends
-  useEffect(() => {
+  const seekTo = useCallback((targetTime: number) => {
     const video = videoRef.current;
     if (!video || !currentSubtitle) return;
 
-    const handleTimeUpdate = () => {
-      const time = video.currentTime;
-      setCurrentTime(time);
-      onTimeUpdate?.(time);
-
-      // Check if we've reached the end of current subtitle
-      if (isPlaying && time >= currentSubtitle.endSeconds && time < currentSubtitle.endSeconds + 0.5) {
-        video.pause();
-        setIsPlaying(false);
-        // Trigger next sentence
-        onSentenceEnd(currentSubtitle.index);
+    if (isReady && video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      // Only seek if significantly different from current time to avoid
+      // resetting the playhead on redundant renders.
+      if (Math.abs(video.currentTime - targetTime) > 0.5) {
+        video.currentTime = targetTime;
+        setCurrentTime(targetTime);
       }
-    };
+      pendingSeekRef.current = null;
+    } else {
+      // Defer the seek until the video is ready
+      pendingSeekRef.current = targetTime;
+    }
+  }, [isReady, currentSubtitle]);
 
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    return () => video.removeEventListener('timeupdate', handleTimeUpdate);
-  }, [isPlaying, currentSubtitle, onSentenceEnd, onTimeUpdate]);
-
-  useEffect(() => {
+  const applyPendingSeek = useCallback(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || pendingSeekRef.current === null) return;
 
-    const handleLoadedMetadata = () => {
-      setDuration(video.duration);
-    };
-
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    return () => video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    video.currentTime = pendingSeekRef.current;
+    setCurrentTime(pendingSeekRef.current);
+    pendingSeekRef.current = null;
   }, []);
 
   // Seek to current subtitle start when it changes
   useEffect(() => {
+    if (!currentSubtitle) return;
+    seekTo(currentSubtitle.startSeconds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSubtitle?.index, seekTo]);
+
+  // Apply pending seek when video becomes ready
+  useEffect(() => {
+    if (isReady) {
+      applyPendingSeek();
+    }
+  }, [isReady, applyPendingSeek]);
+
+  const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current;
     if (!video || !currentSubtitle) return;
 
-    // Only seek if significantly different from current time
-    if (Math.abs(video.currentTime - currentSubtitle.startSeconds) > 0.5) {
-      video.currentTime = currentSubtitle.startSeconds;
-      setCurrentTime(currentSubtitle.startSeconds);
-    }
-  }, [currentSubtitle?.index]);
+    const time = video.currentTime;
+    setCurrentTime(time);
+    onTimeUpdate?.(time);
 
-  const handlePlayPause = () => {
+    // Check if we've reached the end of current subtitle
+    if (isPlaying && time >= currentSubtitle.endSeconds && time < currentSubtitle.endSeconds + 0.5) {
+      video.pause();
+      setIsPlaying(false);
+      // Notify parent that the sentence finished playing, but do not auto-advance
+      onSentenceEnd(currentSubtitle.index, 'auto');
+    }
+  }, [isPlaying, currentSubtitle, onSentenceEnd, onTimeUpdate]);
+
+  const handleLoadedMetadata = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    if (isPlaying) {
-      video.pause();
-    } else {
-      video.play();
+    setDuration(video.duration);
+    setIsReady(true);
+    applyPendingSeek();
+  }, [applyPendingSeek]);
+
+  const handleCanPlay = useCallback(() => {
+    const video = videoRef.current;
+    setIsReady(true);
+    setIsLoading(false);
+    applyPendingSeek();
+
+    if (pendingPlayRef.current && video) {
+      pendingPlayRef.current = false;
+      video.play().catch(() => {
+        // Autoplay may be blocked; keep button state consistent
+        setIsPlaying(false);
+      });
     }
-    setIsPlaying(!isPlaying);
+  }, [applyPendingSeek]);
+
+  const handlePlay = useCallback(() => {
+    setIsPlaying(true);
+  }, []);
+
+  const handlePause = useCallback(() => {
+    setIsPlaying(false);
+  }, []);
+
+  const handlePlayPause = () => {
+    const video = videoRef.current;
+    if (!video || !currentSubtitle) return;
+
+    if (isPlaying) {
+      pendingPlayRef.current = false;
+      video.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    // Ensure playback starts inside the current subtitle range.
+    // If the user is outside the range (e.g. after a page reload where the
+    // seek did not apply yet), jump to the start of the current sentence.
+    if (
+      video.currentTime < currentSubtitle.startSeconds - 0.1 ||
+      video.currentTime > currentSubtitle.endSeconds + 0.1
+    ) {
+      video.currentTime = currentSubtitle.startSeconds;
+      setCurrentTime(currentSubtitle.startSeconds);
+    }
+
+    if (!isReady) {
+      // Defer playback until the video is ready; the canplay handler will
+      // resume playing after applying any pending seek.
+      pendingPlayRef.current = true;
+      setIsPlaying(true);
+      return;
+    }
+
+    video.play().catch(() => {
+      setIsPlaying(false);
+    });
+    setIsPlaying(true);
   };
 
   const handleReplay = () => {
@@ -131,7 +201,7 @@ export function VideoPlayer({
     setCurrentTime(nextSubtitle.startSeconds);
     video.play();
     setIsPlaying(true);
-    onSentenceEnd(currentSubtitle.index);
+    onSentenceEnd(currentSubtitle.index, 'skip');
   };
 
   const handleSliderChange = (value: number[]) => {
@@ -158,8 +228,16 @@ export function VideoPlayer({
             src={videoUrlWithToken}
             className="w-full rounded-lg bg-black"
             crossOrigin="anonymous"
-            onLoadStart={() => setIsLoading(true)}
-            onCanPlay={() => setIsLoading(false)}
+            onLoadStart={() => {
+              setIsLoading(true);
+              setIsReady(false);
+              pendingPlayRef.current = false;
+            }}
+            onLoadedMetadata={handleLoadedMetadata}
+            onCanPlay={handleCanPlay}
+            onTimeUpdate={handleTimeUpdate}
+            onPlay={handlePlay}
+            onPause={handlePause}
             onError={() => setIsLoading(false)}
           />
         ) : (
@@ -184,7 +262,7 @@ export function VideoPlayer({
         <span className="text-sm text-gray-300">{formatTime(currentTime)}</span>
         <Slider
           value={[currentTime]}
-          max={duration || 0}
+          max={Math.max(duration, currentTime, 1)}
           step={0.1}
           onValueChange={handleSliderChange}
           className="flex-1"

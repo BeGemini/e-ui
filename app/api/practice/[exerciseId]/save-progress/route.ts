@@ -6,9 +6,10 @@ import { UserExerciseProgress, UserDictationAttempt, UserSubtitleConfig } from '
 
 interface SaveProgressRequest {
   sentenceIndex: number;
-  userInput: string;
+  userInput?: string;
   accuracy: number;
-  wordFeedback: any[];
+  correctText?: string;
+  wordFeedback?: any[];
   isCompleted?: boolean;
 }
 
@@ -28,37 +29,59 @@ export async function POST(
       );
     }
 
-    const body: SaveProgressRequest = await request.json();
-    const { sentenceIndex, userInput, accuracy, wordFeedback, isCompleted } = body;
+    const { exerciseId } = await params;
 
-    if (sentenceIndex === undefined || !userInput || accuracy === undefined) {
+    const body: SaveProgressRequest = await request.json();
+    const { sentenceIndex, userInput, accuracy, correctText, wordFeedback, isCompleted } = body;
+
+    if (sentenceIndex === undefined || accuracy === undefined) {
       return NextResponse.json(
-        { error: 'Missing required fields: sentenceIndex, userInput, accuracy' },
+        { error: 'Missing required fields: sentenceIndex, accuracy' },
         { status: 400 }
       );
     }
 
-    const { exerciseId } = await params;
-
-    // Get user's progress for this exercise
+    // Get user's progress for this exercise, creating it if this is the first save
     let progress = await queryOne<UserExerciseProgress>(
       'SELECT * FROM UserExerciseProgress WHERE userId = ? AND exerciseId = ?',
       [session.userId, exerciseId]
     );
 
     if (!progress) {
+      const progressId = uuidv4();
+      await execute(
+        `INSERT INTO UserExerciseProgress (progressId, userId, exerciseId, currentSentenceIndex, isCompleted)
+         VALUES (?, ?, ?, 0, 0)`,
+        [progressId, session.userId, exerciseId]
+      );
+
+      progress = await queryOne<UserExerciseProgress>(
+        'SELECT * FROM UserExerciseProgress WHERE progressId = ?',
+        [progressId]
+      );
+    }
+
+    if (!progress) {
       return NextResponse.json(
-        { error: 'Progress not found. Please start the exercise first.' },
-        { status: 404 }
+        { error: 'Could not initialize exercise progress' },
+        { status: 500 }
       );
     }
 
     // Create dictation attempt record
     const attemptId = uuidv4();
     await execute(
-      `INSERT INTO UserDictationAttempt (attemptId, progressId, sentenceIndex, userInput, accuracy, wordFeedback, attemptDate)
-       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [attemptId, progress.progressId, sentenceIndex, userInput, accuracy, JSON.stringify(wordFeedback)]
+      `INSERT INTO UserDictationAttempt (attemptId, progressId, sentenceIndex, userInput, correctAnswer, accuracy, wordFeedback, attemptDate)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        attemptId,
+        progress.progressId,
+        sentenceIndex,
+        userInput ?? '',
+        correctText ?? '',
+        accuracy,
+        JSON.stringify(wordFeedback ?? []),
+      ]
     );
 
     // Update progress: move to next sentence
