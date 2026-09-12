@@ -1,4 +1,5 @@
 import { ParsedSubtitle } from '@/lib/types';
+import { normalizeSubtitleText } from '@/lib/subtitle-parser';
 
 /**
  * Format milliseconds to time string (HH:MM:SS,mmm)
@@ -59,11 +60,11 @@ export function parseSRT(content: string): ParsedSubtitle[] {
       parseInt(timingMatch[7]) * 1000 +
       parseInt(timingMatch[8]);
 
-    const text = textLines.join('\n').trim();
+    const text = normalizeSubtitleText(textLines.join('\n'));
 
     if (text) {
       subtitles.push({
-        index: subtitles.length + 1,
+        index: subtitles.length,
         text,
         startSeconds: startMs / 1000,
         endSeconds: endMs / 1000,

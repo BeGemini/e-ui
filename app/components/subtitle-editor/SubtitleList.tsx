@@ -3,27 +3,19 @@
 import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-
-interface Subtitle {
-  index: number;
-  start: number;
-  end: number;
-  text: string;
-  userConfigured: {
-    isMerged: boolean;
-    isSkipped: boolean;
-    mergedLabel?: string;
-  };
-}
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { EffectiveSubtitle } from '@/lib/types';
 
 interface SubtitleListProps {
-  subtitles: Subtitle[];
+  subtitles: EffectiveSubtitle[];
   currentProgress: number;
   selectedForMerge: number[];
   skippedSentences: number[];
   onSelectForMerge: (index: number, selected: boolean) => void;
   onToggleSkip: (index: number, skipped: boolean) => void;
   onSelectAll: (selected: boolean) => void;
+  onUnmerge?: (index: number) => void;
+  onUpdateMergedText?: (index: number, text: string) => void;
 }
 
 export function SubtitleList({
@@ -34,16 +26,39 @@ export function SubtitleList({
   onSelectForMerge,
   onToggleSkip,
   onSelectAll,
+  onUnmerge,
+  onUpdateMergedText,
 }: SubtitleListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState('');
 
-  const editableSubtitles = subtitles.slice(currentProgress);
+  const editableSubtitles = subtitles.filter((s) => !s.isLocked);
   const allEditableSelected =
     editableSubtitles.length > 0 &&
     editableSubtitles.every((s) => selectedForMerge.includes(s.index));
 
   const toggleExpandedSentence = (index: number) => {
     setExpandedIndex(expandedIndex === index ? null : index);
+  };
+
+  const startEditing = (subtitle: EffectiveSubtitle) => {
+    if (!subtitle.isMerged || subtitle.isLocked) return;
+    setEditingIndex(subtitle.index);
+    setEditingText(subtitle.text);
+  };
+
+  const saveEdit = () => {
+    if (editingIndex !== null && onUpdateMergedText) {
+      onUpdateMergedText(editingIndex, editingText);
+    }
+    setEditingIndex(null);
+    setEditingText('');
+  };
+
+  const cancelEdit = () => {
+    setEditingIndex(null);
+    setEditingText('');
   };
 
   return (
@@ -83,16 +98,16 @@ export function SubtitleList({
       {/* Subtitle List */}
       <div className="max-h-96 overflow-y-auto space-y-2">
         {subtitles.map((subtitle) => {
-          const isLocked = subtitle.index < currentProgress;
           const isSelected = selectedForMerge.includes(subtitle.index);
           const isSkipped = skippedSentences.includes(subtitle.index);
           const isExpanded = expandedIndex === subtitle.index;
+          const isEditing = editingIndex === subtitle.index;
 
           return (
             <div
               key={subtitle.index}
               className={`rounded border p-3 transition-colors ${
-                isLocked
+                subtitle.isLocked
                   ? 'border-gray-300 bg-gray-50'
                   : 'border-gray-200 bg-white hover:bg-gray-50'
               }`}
@@ -103,8 +118,10 @@ export function SubtitleList({
                 <Checkbox
                   id={`merge-${subtitle.index}`}
                   checked={isSelected}
-                  onCheckedChange={(checked) => !isLocked && onSelectForMerge(subtitle.index, !!checked)}
-                  disabled={isLocked}
+                  onCheckedChange={(checked) =>
+                    !subtitle.isLocked && onSelectForMerge(subtitle.index, !!checked)
+                  }
+                  disabled={subtitle.isLocked}
                   className="mt-1"
                 />
 
@@ -114,14 +131,21 @@ export function SubtitleList({
                     <label
                       htmlFor={`merge-${subtitle.index}`}
                       className={`text-sm font-medium ${
-                        isLocked ? 'text-gray-500' : 'text-gray-700 cursor-pointer'
+                        subtitle.isLocked
+                          ? 'text-gray-500'
+                          : 'text-gray-700 cursor-pointer'
                       }`}
                     >
                       Sentence {subtitle.index + 1}
                     </label>
-                    {isLocked && (
+                    {subtitle.isLocked && (
                       <span className="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">
                         Locked
+                      </span>
+                    )}
+                    {subtitle.isMerged && (
+                      <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700">
+                        Merged
                       </span>
                     )}
                     {isSkipped && (
@@ -129,29 +153,41 @@ export function SubtitleList({
                         Skipped
                       </span>
                     )}
-                    {isSelected && !isLocked && (
+                    {isSelected && !subtitle.isLocked && (
                       <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">
                         Merge Selected
                       </span>
                     )}
                   </div>
 
-                  {/* Sentence Text */}
-                  <p className="text-sm text-gray-600 line-clamp-2">
-                    {subtitle.text}
-                  </p>
+                  {/* Sentence Text / Edit Area */}
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <textarea
+                        className="w-full min-h-[80px] rounded border border-gray-300 p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        maxLength={2000}
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={saveEdit}>
+                          Save
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={cancelEdit}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {subtitle.text}
+                    </p>
+                  )}
                 </div>
 
                 {/* Actions */}
                 <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleExpandedSentence(subtitle.index)}
-                  >
-                    {isExpanded ? '▼' : '▶'}
-                  </Button>
-                  {!isLocked && (
+                  {!subtitle.isLocked && (
                     <Button
                       variant={isSkipped ? 'destructive' : 'outline'}
                       size="sm"
@@ -160,6 +196,23 @@ export function SubtitleList({
                       {isSkipped ? 'Unskip' : 'Skip'}
                     </Button>
                   )}
+                  {subtitle.isMerged && !subtitle.isLocked && !isEditing && onUnmerge && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onUnmerge(subtitle.index)}
+                    >
+                      Unmerge
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleExpandedSentence(subtitle.index)}
+                    aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+                  >
+                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
 
@@ -167,15 +220,31 @@ export function SubtitleList({
               {isExpanded && (
                 <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600">
                   <p className="mb-1">
-                    <strong>Time:</strong> {subtitle.start.toFixed(2)}s – {subtitle.end.toFixed(2)}s
+                    <strong>Time:</strong> {subtitle.startSeconds.toFixed(2)}s – {subtitle.endSeconds.toFixed(2)}s
                   </p>
                   <p className="mb-1">
                     <strong>Full text:</strong> {subtitle.text}
                   </p>
-                  {isLocked && (
+                  {subtitle.isMerged && (
+                    <div className="mb-1">
+                      <strong>Original sentences:</strong>{' '}
+                      {subtitle.originalIndices.map((i) => i + 1).join(', ')}
+                    </div>
+                  )}
+                  {subtitle.isLocked && (
                     <p className="text-amber-700">
                       This sentence has been practiced and cannot be edited.
                     </p>
+                  )}
+                  {subtitle.isMerged && !subtitle.isLocked && !isEditing && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2"
+                      onClick={() => startEditing(subtitle)}
+                    >
+                      Edit merged text
+                    </Button>
                   )}
                 </div>
               )}
@@ -186,3 +255,4 @@ export function SubtitleList({
     </div>
   );
 }
+

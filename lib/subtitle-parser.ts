@@ -58,6 +58,23 @@ export function detectSubtitleFormat(filename: string): SubtitleFormat | null {
 }
 
 /**
+ * Normalize subtitle text for display and answer-key usage.
+ * - Replaces literal \\N line-break markers with a single space.
+ * - Collapses multiple whitespace characters to a single space.
+ * - Trims leading/trailing whitespace.
+ */
+export function normalizeSubtitleText(text: string): string {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+
+  return text
+    .replace(/\\N/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Get all supported subtitle formats
  */
 export function getSupportedFormats(): SubtitleFormat[] {

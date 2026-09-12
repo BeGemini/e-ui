@@ -11,27 +11,24 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-
-interface Subtitle {
-  index: number;
-  text: string;
-}
+import { EffectiveSubtitle } from '@/lib/types';
+import * as React from 'react';
 
 interface SkipSentenceEditorProps {
-  subtitles: Subtitle[];
-  currentProgress: number;
+  subtitles: EffectiveSubtitle[];
   skippedSentences: number[];
   onToggleSkip: (index: number, skipped: boolean) => void;
 }
 
 export function SkipSentenceEditor({
   subtitles,
-  currentProgress,
   skippedSentences,
   onToggleSkip,
 }: SkipSentenceEditorProps) {
-  const editableSentences = subtitles.slice(currentProgress);
-  const editableSkipped = skippedSentences.filter((idx) => idx >= currentProgress);
+  const editableSentences = subtitles.filter((s) => !s.isLocked);
+  const editableSkipped = skippedSentences.filter((idx) =>
+    editableSentences.some((s) => s.index === idx)
+  );
 
   const handleSkipAll = () => {
     editableSentences.forEach((subtitle) => {
@@ -101,14 +98,12 @@ export function SkipSentenceEditor({
                   </p>
                 </div>
                 <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700 flex-shrink-0"
-                    >
-                      Unskip
-                    </Button>
+                  <AlertDialogTrigger
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 flex-shrink-0"
+                  >
+                    Unskip
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>

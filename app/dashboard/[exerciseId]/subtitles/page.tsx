@@ -3,29 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { SubtitleList } from '@/app/components/subtitle-editor/SubtitleList';
-import { MergeGroupEditor, type MergeGroup } from '@/app/components/subtitle-editor/MergeGroupEditor';
+import { MergeGroupEditor } from '@/app/components/subtitle-editor/MergeGroupEditor';
 import { SkipSentenceEditor } from '@/app/components/subtitle-editor/SkipSentenceEditor';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-
-interface Subtitle {
-  index: number;
-  start: number;
-  end: number;
-  text: string;
-  userConfigured: {
-    isMerged: boolean;
-    isSkipped: boolean;
-    mergedLabel?: string;
-  };
-}
-
-interface SubtitleConfig {
-  exerciseId: string;
-  userId: string;
-  mergedGroups: MergeGroup[];
-  skippedSentences: number[];
-}
+import { applySubtitleConfigWithLock } from '@/lib/utils';
+import { ParsedSubtitle, EffectiveSubtitle, MergeGroup } from '@/lib/types';
 
 interface UserProgress {
   currentSentenceIndex: number;
@@ -38,8 +21,9 @@ export default function SubtitleEditorPage() {
 
   const exerciseId = params.exerciseId as string;
 
-  const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
-  const [config, setConfig] = useState<SubtitleConfig | null>(null);
+  const [rawSubtitles, setRawSubtitles] = useState<ParsedSubtitle[]>([]);
+  const [effectiveSubtitles, setEffectiveSubtitles] = useState<EffectiveSubtitle[]>([]);
+  const [currentProgress, setCurrentProgress] = useState(0);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -65,8 +49,8 @@ export default function SubtitleEditorPage() {
           'Authorization': `Bearer ${token}`,
         };
 
-        // Get practice data for subtitles
-        const practiceRes = await fetch(`/api/practice/${exerciseId}`, { headers });
+        // Get raw practice data for subtitles (do not apply user's config on server)
+        const practiceRes = await fetch(`/api/practice/${exerciseId}?raw=true`, { headers });
         if (!practiceRes.ok) {
           const errorData = await practiceRes.json().catch(() => ({}));
           console.error('Practice API error:', {
@@ -82,8 +66,11 @@ export default function SubtitleEditorPage() {
           hasSubtitles: practiceData.data?.subtitles?.length || 0,
           hasProgress: !!practiceData.data?.userProgress,
         });
-        setSubtitles(practiceData.data?.subtitles || []);
-        setUserProgress(practiceData.data?.userProgress || null);
+        const fetchedSubtitles: ParsedSubtitle[] = practiceData.data?.subtitles || [];
+        setRawSubtitles(fetchedSubtitles);
+        const progress = practiceData.data?.userProgress || null;
+        setUserProgress(progress);
+        setCurrentProgress(progress?.currentSentenceIndex ?? 0);
 
         // Get config
         const configRes = await fetch(`/api/subtitles/${exerciseId}/config`, { headers });
@@ -102,14 +89,27 @@ export default function SubtitleEditorPage() {
           mergedGroups: configData.config?.mergedGroups?.length || 0,
           skippedSentences: configData.config?.skippedSentences?.length || 0,
         });
-        setConfig(configData.config);
-        
+
         // Parse JSON fields from database
         const mergedGroups = configData.config?.mergedGroups;
         const skippedSentences = configData.config?.skippedSentences;
-        
-        setMergeGroups(Array.isArray(mergedGroups) ? mergedGroups : []);
-        setSkippedSentences(Array.isArray(skippedSentences) ? skippedSentences : []);
+
+        const normalizedMergedGroups = Array.isArray(mergedGroups) ? mergedGroups : [];
+        const normalizedSkippedSentences = Array.isArray(skippedSentences) ? skippedSentences : [];
+
+        setMergeGroups(normalizedMergedGroups);
+        setSkippedSentences(normalizedSkippedSentences);
+
+        // Compute effective subtitles for the editor (with lock state)
+        const effectiveWithLock = applySubtitleConfigWithLock(
+          fetchedSubtitles,
+          {
+            mergedGroups: normalizedMergedGroups,
+            skippedSentences: normalizedSkippedSentences,
+          },
+          progress?.currentSentenceIndex ?? 0
+        );
+        setEffectiveSubtitles(effectiveWithLock);
       } catch (error) {
         console.error('Fetch data error:', error);
         toast({
@@ -137,8 +137,8 @@ export default function SubtitleEditorPage() {
     if (!userProgress) return;
 
     if (selected) {
-      const editableIndices = subtitles
-        .filter((s) => s.index >= userProgress.currentSentenceIndex)
+      const editableIndices = effectiveSubtitles
+        .filter((s) => !s.isLocked)
         .map((s) => s.index);
       setSelectedForMerge(editableIndices);
     } else {
@@ -146,23 +146,38 @@ export default function SubtitleEditorPage() {
     }
   };
 
-  const handleToggleSkip = (index: number, skipped: boolean) => {
-    setSkippedSentences((prev) =>
-      skipped ? [...prev, index] : prev.filter((i) => i !== index)
+  const handleToggleSkip = (effectiveIndex: number, skipped: boolean) => {
+    const row = effectiveSubtitles.find((s) => s.index === effectiveIndex);
+    if (!row) return;
+
+    const originalIndices = row.originalIndices;
+    setSkippedSentences((prev) => {
+      const next = new Set(prev);
+      for (const originalIndex of originalIndices) {
+        if (skipped) {
+          next.add(originalIndex);
+        } else {
+          next.delete(originalIndex);
+        }
+      }
+      return Array.from(next);
+    });
+  };
+
+  const recomputeEffectiveSubtitles = (
+    groups: MergeGroup[],
+    skips: number[]
+  ) => {
+    setEffectiveSubtitles(
+      applySubtitleConfigWithLock(rawSubtitles, { mergedGroups: groups, skippedSentences: skips }, currentProgress)
     );
   };
 
   const handleAddGroup = (group: MergeGroup) => {
-    setMergeGroups((prev) => [...prev, group]);
+    const nextGroups = [...mergeGroups, group];
+    setMergeGroups(nextGroups);
     setSelectedForMerge([]);
-  };
-
-  const handleRemoveGroup = (index: number) => {
-    setMergeGroups((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleUpdateGroup = (index: number, group: MergeGroup) => {
-    setMergeGroups((prev) => prev.map((g, i) => (i === index ? group : g)));
+    recomputeEffectiveSubtitles(nextGroups, skippedSentences);
   };
 
   const handleCreateFromSelected = (label: string) => {
@@ -176,6 +191,37 @@ export default function SubtitleEditorPage() {
     };
 
     handleAddGroup(newGroup);
+  };
+
+  const handleUnmerge = (effectiveIndex: number) => {
+    const row = effectiveSubtitles.find((s) => s.index === effectiveIndex);
+    if (!row || !row.isMerged) return;
+
+    const startOriginal = row.originalIndices[0];
+    const nextGroups = mergeGroups.filter(
+      (g) => g.startIndex !== startOriginal
+    );
+    setMergeGroups(nextGroups);
+    recomputeEffectiveSubtitles(nextGroups, skippedSentences);
+  };
+
+  const handleUpdateMergedText = (effectiveIndex: number, text: string) => {
+    const row = effectiveSubtitles.find((s) => s.index === effectiveIndex);
+    if (!row || !row.isMerged) return;
+
+    const startOriginal = row.originalIndices[0];
+    const trimmed = text.trim();
+    const nextGroups = mergeGroups.map((g) => {
+      if (g.startIndex !== startOriginal) return g;
+      const base: MergeGroup = {
+        startIndex: g.startIndex,
+        endIndex: g.endIndex,
+        label: g.label,
+      };
+      return trimmed ? { ...base, customText: trimmed } : base;
+    });
+    setMergeGroups(nextGroups);
+    recomputeEffectiveSubtitles(nextGroups, skippedSentences);
   };
 
   const handleSaveConfig = async () => {
@@ -194,7 +240,7 @@ export default function SubtitleEditorPage() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          mergedGroups,
+          mergedGroups: mergeGroups,
           skippedSentences,
         }),
       });
@@ -226,7 +272,7 @@ export default function SubtitleEditorPage() {
   const handleReset = async () => {
     try {
       setIsSaving(true);
-      
+
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('Authentication required');
@@ -246,6 +292,7 @@ export default function SubtitleEditorPage() {
       setMergeGroups([]);
       setSkippedSentences([]);
       setSelectedForMerge([]);
+      recomputeEffectiveSubtitles([], []);
 
       toast({
         title: 'Success',
@@ -273,7 +320,7 @@ export default function SubtitleEditorPage() {
     );
   }
 
-  if (!subtitles || subtitles.length === 0 || !userProgress) {
+  if (!effectiveSubtitles || effectiveSubtitles.length === 0 || !userProgress) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -308,30 +355,27 @@ export default function SubtitleEditorPage() {
 
         {/* Subtitle List */}
         <SubtitleList
-          subtitles={subtitles}
+          subtitles={effectiveSubtitles}
           currentProgress={userProgress.currentSentenceIndex}
           selectedForMerge={selectedForMerge}
           skippedSentences={skippedSentences}
           onSelectForMerge={handleSelectForMerge}
           onToggleSkip={handleToggleSkip}
           onSelectAll={handleSelectAll}
+          onUnmerge={handleUnmerge}
+          onUpdateMergedText={handleUpdateMergedText}
         />
 
         {/* Merge Group Editor */}
         <MergeGroupEditor
           mergeGroups={mergeGroups}
           selectedForMerge={selectedForMerge}
-          totalSentences={subtitles.length}
-          onAddGroup={handleAddGroup}
-          onRemoveGroup={handleRemoveGroup}
-          onUpdateGroup={handleUpdateGroup}
           onCreateFromSelected={handleCreateFromSelected}
         />
 
         {/* Skip Sentence Editor */}
         <SkipSentenceEditor
-          subtitles={subtitles}
-          currentProgress={userProgress.currentSentenceIndex}
+          subtitles={effectiveSubtitles}
           skippedSentences={skippedSentences}
           onToggleSkip={handleToggleSkip}
         />

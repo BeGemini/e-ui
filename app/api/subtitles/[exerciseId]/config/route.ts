@@ -113,9 +113,26 @@ export async function PUT(
     // Validate merged groups don't modify already completed sentences
     if (mergedGroups && Array.isArray(mergedGroups)) {
       for (const group of mergedGroups) {
-        if (group.start < currentProgress) {
+        const startIndex = group.startIndex ?? group.start;
+        const endIndex = group.endIndex ?? group.end;
+
+        if (startIndex < currentProgress) {
           return NextResponse.json(
-            { error: `Cannot modify merge group starting at sentence ${group.start}. Already completed up to sentence ${currentProgress - 1}. Read-only constraint enforced.` },
+            { error: `Cannot modify merge group starting at sentence ${startIndex}. Already completed up to sentence ${currentProgress - 1}. Read-only constraint enforced.` },
+            { status: 400 }
+          );
+        }
+
+        if (startIndex > endIndex) {
+          return NextResponse.json(
+            { error: `Merge group start (${startIndex}) must be <= end (${endIndex}).` },
+            { status: 400 }
+          );
+        }
+
+        if (group.customText !== undefined && group.customText.trim().length === 0) {
+          return NextResponse.json(
+            { error: 'customText cannot be empty when provided.' },
             { status: 400 }
           );
         }
@@ -126,7 +143,11 @@ export async function PUT(
         for (let j = i + 1; j < mergedGroups.length; j++) {
           const g1 = mergedGroups[i];
           const g2 = mergedGroups[j];
-          if (g1.start <= g2.start && g2.start <= g1.end) {
+          const g1Start = g1.startIndex ?? g1.start;
+          const g1End = g1.endIndex ?? g1.end;
+          const g2Start = g2.startIndex ?? g2.start;
+          const g2End = g2.endIndex ?? g2.end;
+          if (g1Start <= g2Start && g2Start <= g1End) {
             return NextResponse.json(
               { error: 'Merge groups cannot overlap' },
               { status: 400 }

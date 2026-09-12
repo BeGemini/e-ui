@@ -45,7 +45,8 @@ export const SaveProgressSchema = z.object({
 export const MergeGroupSchema = z.object({
   startIndex: z.number().min(0, 'Start index must be >= 0'),
   endIndex: z.number().min(0, 'End index must be >= 0'),
-  label: z.string().min(1, 'Label required').max(100, 'Label too long'),
+  label: z.string().max(100, 'Label too long').optional(),
+  customText: z.string().max(2000, 'Custom text too long').optional(),
 });
 
 export const SubtitleConfigSchema = z.object({

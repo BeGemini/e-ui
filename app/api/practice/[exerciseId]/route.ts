@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionFromRequest } from '@/lib/session';
-import { initializeDatabase, queryOne, query } from '@/lib/db';
-import { Exercise, UserSubtitleConfig, ParsedSubtitle, UserExerciseProgress } from '@/lib/types';
-import { downloadFile, getSignedUrl } from '@/lib/cos-client';
+import { initializeDatabase, queryOne } from '@/lib/db';
+import { Exercise, UserSubtitleConfig, ParsedSubtitle, EffectiveSubtitle, UserExerciseProgress } from '@/lib/types';
+import { downloadFile } from '@/lib/cos-client';
 import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
+import { applySubtitleConfig, SubtitleConfigInput } from '@/lib/utils';
 
 interface ExerciseWithSubtitles extends Exercise {
   videoUrl: string;
-  subtitles: ParsedSubtitle[];
+  subtitles: EffectiveSubtitle[];
   userConfig?: UserSubtitleConfig | null;
   userProgress?: {
     currentSentenceIndex: number;
@@ -33,6 +34,10 @@ export async function GET(
 
     // Await params to unwrap the Promise (Next.js 16+)
     const { exerciseId } = await params;
+
+    // Check for raw subtitle request (used by subtitle editor)
+    const { searchParams } = new URL(request.url);
+    const rawSubtitlesRequested = searchParams.get('raw') === 'true';
 
     // Fetch exercise
     const exercise = await queryOne<Exercise>(
@@ -82,39 +87,34 @@ export async function GET(
     );
 
     // Apply user's subtitle configuration (merge/skip)
-    let processedSubtitles = subtitles;
+    let processedSubtitles: EffectiveSubtitle[] = subtitles.map((sub, idx) => ({
+      ...sub,
+      index: idx,
+      originalIndices: [idx],
+      isMerged: false,
+      isSkipped: false,
+    }));
 
-    if (userConfig && subtitles.length > 0) {
+    if (!rawSubtitlesRequested && userConfig && subtitles.length > 0) {
       // Get merged groups and skipped sentences from JSON columns
       // MySQL JSON fields are already parsed, so check if they're strings or objects
       const mergedGroupsRaw = userConfig.mergedGroups;
       const skippedSentencesRaw = userConfig.skippedSentences;
-      
-      const mergedGroups = typeof mergedGroupsRaw === 'string' 
+
+      const mergedGroups = typeof mergedGroupsRaw === 'string'
         ? (mergedGroupsRaw ? JSON.parse(mergedGroupsRaw) : [])
         : (Array.isArray(mergedGroupsRaw) ? mergedGroupsRaw : []);
-        
+
       const skippedSentences = typeof skippedSentencesRaw === 'string'
         ? (skippedSentencesRaw ? JSON.parse(skippedSentencesRaw) : [])
         : (Array.isArray(skippedSentencesRaw) ? skippedSentencesRaw : []);
 
-      // Apply merged groups
-      if (mergedGroups.length > 0) {
-        processedSubtitles = applyMergedGroups(processedSubtitles, mergedGroups);
-      }
+      const configInput: SubtitleConfigInput = {
+        mergedGroups,
+        skippedSentences,
+      };
 
-      // Apply skipped sentences
-      if (skippedSentences.length > 0) {
-        processedSubtitles = processedSubtitles.filter(
-          (sub) => !skippedSentences.includes(sub.index - 1)
-        );
-        
-        // Re-index after filtering to maintain correct array positions
-        processedSubtitles = processedSubtitles.map((sub, idx) => ({
-          ...sub,
-          index: idx + 1,
-        }));
-      }
+      processedSubtitles = applySubtitleConfig(subtitles, configInput, { omitSkipped: true });
     }
 
     const result: ExerciseWithSubtitles = {
@@ -154,55 +154,4 @@ export async function GET(
   }
 }
 
-/**
- * Apply merged groups to subtitles
- * Combines multiple subtitles into single entries
- */
-function applyMergedGroups(
-  subtitles: ParsedSubtitle[],
-  mergedGroups: Array<{ start: number; end: number; label?: string }>
-): ParsedSubtitle[] {
-  const result: ParsedSubtitle[] = [];
-  const merged = new Set<number>();
 
-  // Process merged groups
-  for (const group of mergedGroups) {
-    const groupSubtitles = subtitles.filter(
-      (sub) => sub.index - 1 >= group.start && sub.index - 1 <= group.end
-    );
-
-    if (groupSubtitles.length > 0) {
-      const mergedText = groupSubtitles.map((s) => s.text).join('\n');
-      const startTime = groupSubtitles[0].startTime;
-      const endTime = groupSubtitles[groupSubtitles.length - 1].endTime;
-      const startSeconds = groupSubtitles[0].startSeconds;
-      const endSeconds = groupSubtitles[groupSubtitles.length - 1].endSeconds;
-
-      result.push({
-        index: result.length + 1,
-        startTime,
-        endTime,
-        startSeconds,
-        endSeconds,
-        text: mergedText,
-      });
-
-      // Mark these indices as merged
-      for (let i = group.start; i <= group.end; i++) {
-        merged.add(i);
-      }
-    }
-  }
-
-  // Add non-merged subtitles
-  for (const sub of subtitles) {
-    if (!merged.has(sub.index - 1)) {
-      result.push({
-        ...sub,
-        index: result.length + 1,
-      });
-    }
-  }
-
-  return result;
-}

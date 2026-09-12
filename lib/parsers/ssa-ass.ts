@@ -1,4 +1,5 @@
 import { ParsedSubtitle } from '@/lib/types';
+import { normalizeSubtitleText } from '@/lib/subtitle-parser';
 
 /**
  * Format milliseconds to time string (0:00:00.00)
@@ -82,12 +83,12 @@ export function parseSSAASS(content: string): ParsedSubtitle[] {
           const endMs = parseTime(endStr || '0:00:00.00');
 
           // Remove SSA style tags (e.g., {\i1}, {\c&HFFFFFF&})
-          const cleanText = text.replace(/\{\\[^}]*\}/g, '');
+          const cleanText = normalizeSubtitleText(text.replace(/\{\\[^}]*\}/g, ''));
 
-          if (cleanText.trim()) {
+          if (cleanText) {
             subtitles.push({
-              index: subtitles.length + 1,
-              text: cleanText.trim(),
+              index: subtitles.length,
+              text: cleanText,
               startSeconds: startMs / 1000,
               endSeconds: endMs / 1000,
               startTime: formatTime(startMs),

@@ -117,6 +117,7 @@ export interface MergeGroup {
   startIndex: number;
   endIndex: number;
   label?: string;
+  customText?: string;
 }
 
 // ===== SUBTITLE PARSING =====
@@ -130,6 +131,13 @@ export interface ParsedSubtitle {
   endTime: string;
   isMerged?: boolean;
   isSkipped?: boolean;
+}
+
+export interface EffectiveSubtitle extends ParsedSubtitle {
+  originalIndices: number[];
+  isMerged: boolean;
+  isSkipped: boolean;
+  isLocked?: boolean;
 }
 
 // ===== API REQUEST/RESPONSE TYPES =====
