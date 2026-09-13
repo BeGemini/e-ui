@@ -183,10 +183,32 @@ export default function SubtitleEditorPage() {
   const handleCreateFromSelected = (label: string) => {
     if (selectedForMerge.length < 2) return;
 
-    const sorted = [...selectedForMerge].sort((a, b) => a - b);
+    // Map effective indices back to original indices so the merge group
+    // stores the correct raw subtitle range (effective indices can differ
+    // after existing merges/skips).
+    const selectedOriginalIndices = selectedForMerge
+      .map((idx) => effectiveSubtitles.find((s) => s.index === idx))
+      .filter((s): s is EffectiveSubtitle => !!s)
+      .flatMap((s) => s.originalIndices);
+
+    const sortedOriginal = [...new Set(selectedOriginalIndices)].sort((a, b) => a - b);
+
+    // Require a contiguous original range so we don't silently include
+    // unselected sentences in the new group.
+    const startIndex = sortedOriginal[0];
+    const endIndex = sortedOriginal[sortedOriginal.length - 1];
+    if (endIndex - startIndex + 1 !== sortedOriginal.length) {
+      toast({
+        title: 'Invalid selection',
+        description: 'Please select consecutive sentences for a merge group.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const newGroup: MergeGroup = {
-      startIndex: sorted[0],
-      endIndex: sorted[sorted.length - 1],
+      startIndex,
+      endIndex,
       label,
     };
 

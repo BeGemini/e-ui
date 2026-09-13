@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 import { Play, Pause, RotateCcw, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -16,17 +16,24 @@ interface VideoPlayerProps {
     endTime: string;
   }>;
   currentSentenceIndex: number;
+  totalSentences?: number;
   onSentenceEnd: (sentenceIndex: number, reason: 'auto' | 'skip') => void;
   onTimeUpdate?: (currentTime: number) => void;
 }
 
-export function VideoPlayer({
+export interface VideoPlayerRef {
+  /** Seek to the start of the sentence at the given array index and play it. */
+  playSentenceAtIndex: (index: number) => void;
+}
+
+export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function VideoPlayer({
   videoUrl,
   subtitles,
   currentSentenceIndex,
+  totalSentences: totalSentencesProp,
   onSentenceEnd,
   onTimeUpdate,
-}: VideoPlayerProps) {
+}: VideoPlayerProps, ref) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pendingSeekRef = useRef<number | null>(null);
   const pendingPlayRef = useRef(false);
@@ -36,6 +43,31 @@ export function VideoPlayer({
   const [duration, setDuration] = useState(0);
   const [videoUrlWithToken, setVideoUrlWithToken] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Expose imperative playback control so the parent can trigger playback
+  // when the user advances to the next sentence.
+  useImperativeHandle(ref, () => ({
+    playSentenceAtIndex: (index: number) => {
+      const video = videoRef.current;
+      const targetSubtitle = index < subtitles.length ? subtitles[index] : null;
+      if (!video || !targetSubtitle) return;
+
+      video.currentTime = targetSubtitle.startSeconds;
+      setCurrentTime(targetSubtitle.startSeconds);
+
+      if (!isReady) {
+        pendingPlayRef.current = true;
+        setIsPlaying(true);
+        return;
+      }
+
+      video.play().catch(() => {
+        // Autoplay may be blocked; keep button state consistent
+        setIsPlaying(false);
+      });
+      setIsPlaying(true);
+    },
+  }), [subtitles, isReady]);
 
   // Add token to video URL. Reading localStorage must happen in an effect
   // to avoid SSR/hydration mismatches.
@@ -52,6 +84,10 @@ export function VideoPlayer({
 
   // Get current subtitle (API already filters skipped ones)
   const currentSubtitle = currentSentenceIndex < subtitles.length ? subtitles[currentSentenceIndex] : null;
+
+  // Use the authoritative total sentence count when provided; otherwise fall
+  // back to the effective subtitle array length.
+  const totalSentences = totalSentencesProp ?? subtitles.length;
 
   const seekTo = useCallback((targetTime: number) => {
     const video = videoRef.current;
@@ -274,7 +310,7 @@ export function VideoPlayer({
       {currentSubtitle && (
         <div className="flex items-center justify-between rounded bg-gray-800 px-3 py-2 text-sm text-gray-300">
           <span>
-            Sentence {currentSubtitle.index + 1} / {subtitles.length}
+            Sentence {currentSubtitle.index + 1} / {totalSentences}
           </span>
           <span className="text-xs text-gray-500">
             Duration: {(currentSubtitle.endSeconds - currentSubtitle.startSeconds).toFixed(1)}s
@@ -316,4 +352,4 @@ export function VideoPlayer({
       </div>
     </div>
   );
-}
+});

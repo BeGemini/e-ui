@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { VideoPlayer } from '@/app/components/video-player/VideoPlayer';
+import type { VideoPlayerRef } from '@/app/components/video-player/VideoPlayer';
 import { DictationInput } from '@/app/components/dictation/DictationInput';
 import { WordFeedbackDisplay } from '@/app/components/dictation/WordFeedbackDisplay';
 import { Button } from '@/components/ui/button';
@@ -57,6 +58,7 @@ export default function PracticePage() {
   const [isCheckingAccuracy, setIsCheckingAccuracy] = useState(false);
   const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [completionMessage, setCompletionMessage] = useState('');
+  const videoPlayerRef = useRef<VideoPlayerRef>(null);
 
   // Fetch practice data on mount or when exerciseId changes
   useEffect(() => {
@@ -111,6 +113,10 @@ export default function PracticePage() {
     }
     return null;
   }, [practiceData, currentSentenceIndex]);
+
+  // Total sentences exposed by the API already reflects the user's subtitle
+  // configuration (merge/skip). Fallback to the raw subtitle count just in case.
+  const totalSentences = practiceData?.totalSentences ?? practiceData?.subtitles.length ?? 0;
 
   const currentSubtitle = getCurrentSubtitle();
 
@@ -183,15 +189,20 @@ export default function PracticePage() {
     if (!practiceData) return;
 
     // Find next sentence (API already filters skipped ones)
-    let nextIndex = completedIndex + 1;
+    const nextIndex = completedIndex + 1;
 
-    if (nextIndex >= practiceData.subtitles.length) {
+    if (nextIndex >= totalSentences) {
       // Exercise completed
       handleExerciseComplete(completedIndex);
     } else {
       setCurrentSentenceIndex(nextIndex);
       setUserInput('');
       setCurrentFeedback(null);
+      // Auto-play the next sentence so the user can listen immediately.
+      // A small timeout ensures the player has rendered with the new index.
+      setTimeout(() => {
+        videoPlayerRef.current?.playSentenceAtIndex(nextIndex);
+      }, 0);
     }
   };
 
@@ -203,7 +214,7 @@ export default function PracticePage() {
       const token = localStorage.getItem('token');
 
       const isCompleted =
-        sentenceIndex >= practiceData.subtitles.length - 1;
+        sentenceIndex >= totalSentences - 1;
 
       const response = await fetch(`/api/practice/${exerciseId}/save-progress`, {
         method: 'POST',
@@ -278,84 +289,93 @@ export default function PracticePage() {
     );
   }
 
-  if (completionMessage) {
+    const progressPercent = totalSentences > 0
+      ? Math.round((currentSentenceIndex / totalSentences) * 100)
+      : 0;
+
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-2xl font-bold text-green-600 mb-4">{completionMessage}</p>
-          <p className="text-gray-600">Redirecting...</p>
+      <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto w-[90%] space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Practice Dictation</h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Sentence {currentSentenceIndex + 1} of {totalSentences} ({progressPercent}%)
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => router.back()}>
+              Back
+            </Button>
+          </div>
+
+          {/* Main content: video on the left (2/3), dictation/feedback on the right (1/3) */}
+          <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+            {/* Video Player */}
+            <div className="w-full lg:w-2/3 min-w-0">
+              <VideoPlayer
+                ref={videoPlayerRef}
+                videoUrl={practiceData.videoUrl}
+                subtitles={practiceData.subtitles}
+                currentSentenceIndex={currentSentenceIndex}
+                totalSentences={totalSentences}
+                onSentenceEnd={handleSentenceEnd}
+              />
+            </div>
+
+            {/* Vertical divider */}
+            <div className="hidden lg:block w-px bg-gray-200 self-stretch" />
+
+            {/* Right side: Dictation + Feedback + Actions */}
+            <div className="w-full lg:w-1/3 min-w-0 space-y-6">
+              {/* Dictation Input */}
+              <DictationInput
+                value={userInput}
+                onChange={setUserInput}
+                onSubmit={handleCheckAccuracy}
+                onClear={handleClearInput}
+                isLoading={isCheckingAccuracy}
+                isDisabled={isSavingProgress}
+              />
+
+              {/* Word Feedback Display */}
+              {currentFeedback && (
+                <WordFeedbackDisplay
+                  correctText={currentSubtitle.text}
+                  userText={userInput}
+                  wordFeedback={currentFeedback.wordFeedback}
+                  accuracy={currentFeedback.accuracy}
+                  isVisible={true}
+                />
+              )}
+
+              {/* Action Buttons */}
+              {currentFeedback && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleSkip()}
+                    className="flex-1"
+                    disabled={isSavingProgress}
+                  >
+                    Skip
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (currentFeedback) {
+                        saveProgress(currentSubtitle.index, currentFeedback.accuracy);
+                      }
+                    }}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    disabled={isSavingProgress}
+                  >
+                    {isSavingProgress ? 'Saving...' : 'Next Sentence'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );
   }
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-4xl space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">Practice Dictation</h1>
-          <Button variant="outline" onClick={() => router.back()}>
-            Back
-          </Button>
-        </div>
-
-        {/* Video Player */}
-        <div className="space-y-2">
-          <VideoPlayer
-            videoUrl={practiceData.videoUrl}
-            subtitles={practiceData.subtitles}
-            currentSentenceIndex={currentSentenceIndex}
-            onSentenceEnd={handleSentenceEnd}
-          />
-        </div>
-
-        {/* Dictation Input */}
-        <DictationInput
-          value={userInput}
-          onChange={setUserInput}
-          onSubmit={handleCheckAccuracy}
-          onClear={handleClearInput}
-          isLoading={isCheckingAccuracy}
-          isDisabled={isSavingProgress}
-        />
-
-        {/* Word Feedback Display */}
-        {currentFeedback && (
-          <WordFeedbackDisplay
-            correctText={currentSubtitle.text}
-            userText={userInput}
-            wordFeedback={currentFeedback.wordFeedback}
-            accuracy={currentFeedback.accuracy}
-            isVisible={true}
-          />
-        )}
-
-        {/* Action Buttons */}
-        {currentFeedback && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => handleSkip()}
-              className="flex-1"
-              disabled={isSavingProgress}
-            >
-              Skip
-            </Button>
-            <Button
-              onClick={() => {
-                if (currentFeedback) {
-                  saveProgress(currentSubtitle.index, currentFeedback.accuracy);
-                }
-              }}
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
-              disabled={isSavingProgress}
-            >
-              {isSavingProgress ? 'Saving...' : 'Next Sentence'}
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}

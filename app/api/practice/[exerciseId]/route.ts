@@ -117,9 +117,17 @@ export async function GET(
       processedSubtitles = applySubtitleConfig(subtitles, configInput, { omitSkipped: true });
     }
 
+    // Determine authoritative total sentence count:
+    // prefer user's computed effective count, fall back to Exercise.totalSentences
+    const effectiveSentenceCount = userConfig?.effectiveSentenceCount ?? null;
+    const totalSentences = effectiveSentenceCount !== null && effectiveSentenceCount !== undefined
+      ? effectiveSentenceCount
+      : exercise.totalSentences;
+
     const result: ExerciseWithSubtitles = {
       ...exercise,
       videoUrl,
+      totalSentences,
       subtitles: processedSubtitles,
       userConfig: userConfig || null,
       userProgress: userProgress ? {

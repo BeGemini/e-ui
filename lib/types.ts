@@ -109,6 +109,7 @@ export interface UserSubtitleConfig {
   exerciseId: string;
   mergedGroups: string; // JSON string in database
   skippedSentences: string; // JSON string in database
+  effectiveSentenceCount?: number | null; // Effective sentence count after merge/skip
   createdDate: Date;
   updatedDate: Date;
 }

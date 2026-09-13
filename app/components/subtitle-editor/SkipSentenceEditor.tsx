@@ -26,13 +26,17 @@ export function SkipSentenceEditor({
   onToggleSkip,
 }: SkipSentenceEditorProps) {
   const editableSentences = subtitles.filter((s) => !s.isLocked);
+  // skippedSentences stores original indices, so match against originalIndices
   const editableSkipped = skippedSentences.filter((idx) =>
-    editableSentences.some((s) => s.index === idx)
+    editableSentences.some((s) => s.originalIndices.includes(idx))
   );
 
   const handleSkipAll = () => {
     editableSentences.forEach((subtitle) => {
-      if (!skippedSentences.includes(subtitle.index)) {
+      const isSkipped = subtitle.originalIndices.every((idx) =>
+        skippedSentences.includes(idx)
+      );
+      if (!isSkipped) {
         onToggleSkip(subtitle.index, true);
       }
     });
@@ -81,7 +85,8 @@ export function SkipSentenceEditor({
       {editableSkipped.length > 0 ? (
         <div className="max-h-48 overflow-y-auto space-y-2">
           {editableSkipped.map((index) => {
-            const subtitle = subtitles.find((s) => s.index === index);
+            // skippedSentences stores original indices
+            const subtitle = subtitles.find((s) => s.originalIndices.includes(index));
             if (!subtitle) return null;
 
             return (

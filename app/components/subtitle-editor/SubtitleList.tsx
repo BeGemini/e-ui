@@ -99,7 +99,10 @@ export function SubtitleList({
       <div className="max-h-96 overflow-y-auto space-y-2">
         {subtitles.map((subtitle) => {
           const isSelected = selectedForMerge.includes(subtitle.index);
-          const isSkipped = skippedSentences.includes(subtitle.index);
+          // skippedSentences stores original indices, so check against originalIndices
+          const isSkipped = subtitle.originalIndices.every((idx) =>
+            skippedSentences.includes(idx)
+          );
           const isExpanded = expandedIndex === subtitle.index;
           const isEditing = editingIndex === subtitle.index;
 

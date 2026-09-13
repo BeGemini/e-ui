@@ -3,6 +3,20 @@ import { v4 as uuidv4 } from 'uuid';
 import { verifySessionFromRequest } from '@/lib/session';
 import { initializeDatabase, queryOne, execute } from '@/lib/db';
 import { UserExerciseProgress, UserSubtitleConfig, Exercise } from '@/lib/types';
+import { downloadFile } from '@/lib/cos-client';
+import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
+import { applySubtitleConfig, SubtitleConfigInput } from '@/lib/utils';
+
+function safeParseJson<T>(value: string | null | undefined, fallback: T): T {
+  if (!value) return fallback;
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return fallback;
+    return parsed as T;
+  } catch {
+    return fallback;
+  }
+}
 
 /**
  * GET /api/subtitles/[exerciseId]/config
@@ -42,8 +56,8 @@ export async function GET(
     if (!config) {
       const configId = uuidv4();
       await execute(
-        `INSERT INTO UserSubtitleConfig (configId, userId, exerciseId, mergedGroups, skippedSentences, createdDate)
-         VALUES (?, ?, ?, '[]', '[]', NOW())`,
+        `INSERT INTO UserSubtitleConfig (configId, userId, exerciseId, mergedGroups, skippedSentences, effectiveSentenceCount, createdDate)
+         VALUES (?, ?, ?, '[]', '[]', NULL, NOW())`,
         [configId, session.userId, exerciseId]
       );
 
@@ -110,18 +124,33 @@ export async function PUT(
 
     const currentProgress = progress.currentSentenceIndex;
 
+    // Load existing config so unchanged existing items can be re-saved
+    // even if they overlap with already-completed sentences.
+    const existingConfig = await queryOne<UserSubtitleConfig>(
+      'SELECT * FROM UserSubtitleConfig WHERE userId = ? AND exerciseId = ?',
+      [session.userId, exerciseId]
+    );
+
+    const existingGroups: MergeGroup[] = existingConfig
+      ? safeParseJson<MergeGroup[]>(existingConfig.mergedGroups, [])
+      : [];
+    const existingSkipped: number[] = existingConfig
+      ? safeParseJson<number[]>(existingConfig.skippedSentences, [])
+      : [];
+
+    const existingGroupKey = (group: MergeGroup) => {
+      const startIndex = group.startIndex ?? group.start;
+      const endIndex = group.endIndex ?? group.end;
+      return `${startIndex}-${endIndex}-${group.label ?? ''}-${group.customText ?? ''}`;
+    };
+    const existingGroupKeys = new Set(existingGroups.map(existingGroupKey));
+    const existingSkippedSet = new Set(existingSkipped);
+
     // Validate merged groups don't modify already completed sentences
     if (mergedGroups && Array.isArray(mergedGroups)) {
       for (const group of mergedGroups) {
         const startIndex = group.startIndex ?? group.start;
         const endIndex = group.endIndex ?? group.end;
-
-        if (startIndex < currentProgress) {
-          return NextResponse.json(
-            { error: `Cannot modify merge group starting at sentence ${startIndex}. Already completed up to sentence ${currentProgress - 1}. Read-only constraint enforced.` },
-            { status: 400 }
-          );
-        }
 
         if (startIndex > endIndex) {
           return NextResponse.json(
@@ -136,17 +165,34 @@ export async function PUT(
             { status: 400 }
           );
         }
+
+        // Only enforce read-only for new or changed merge groups
+        const normalizedGroup: MergeGroup = {
+          startIndex,
+          endIndex,
+          label: group.label,
+          customText: group.customText,
+        };
+        const isExistingUnchanged = existingGroupKeys.has(existingGroupKey(normalizedGroup));
+        if (!isExistingUnchanged && startIndex < currentProgress) {
+          return NextResponse.json(
+            { error: `Cannot modify merge group starting at sentence ${startIndex}. Already completed up to sentence ${currentProgress - 1}. Read-only constraint enforced.` },
+            { status: 400 }
+          );
+        }
       }
 
       // Validate no overlapping groups
-      for (let i = 0; i < mergedGroups.length; i++) {
-        for (let j = i + 1; j < mergedGroups.length; j++) {
-          const g1 = mergedGroups[i];
-          const g2 = mergedGroups[j];
+      const sortedGroups = [...mergedGroups].sort(
+        (a, b) => (a.startIndex ?? a.start) - (b.startIndex ?? b.start)
+      );
+      for (let i = 0; i < sortedGroups.length; i++) {
+        for (let j = i + 1; j < sortedGroups.length; j++) {
+          const g1 = sortedGroups[i];
+          const g2 = sortedGroups[j];
           const g1Start = g1.startIndex ?? g1.start;
           const g1End = g1.endIndex ?? g1.end;
           const g2Start = g2.startIndex ?? g2.start;
-          const g2End = g2.endIndex ?? g2.end;
           if (g1Start <= g2Start && g2Start <= g1End) {
             return NextResponse.json(
               { error: 'Merge groups cannot overlap' },
@@ -160,7 +206,8 @@ export async function PUT(
     // Validate skipped sentences don't modify already completed sentences
     if (skippedSentences && Array.isArray(skippedSentences)) {
       for (const sentenceIndex of skippedSentences) {
-        if (sentenceIndex < currentProgress) {
+        // Only enforce read-only for newly added skips
+        if (!existingSkippedSet.has(sentenceIndex) && sentenceIndex < currentProgress) {
           return NextResponse.json(
             { error: `Cannot skip sentence ${sentenceIndex}. Already completed up to sentence ${currentProgress - 1}. Read-only constraint enforced.` },
             { status: 400 }
@@ -168,6 +215,13 @@ export async function PUT(
         }
       }
     }
+
+    // Compute effective sentence count from raw subtitles + new config
+    const effectiveSentenceCount = await computeEffectiveSentenceCount(
+      exerciseId,
+      mergedGroups || [],
+      skippedSentences || []
+    );
 
     // Get or create config
     let config = await queryOne<UserSubtitleConfig>(
@@ -178,14 +232,15 @@ export async function PUT(
     if (!config) {
       const configId = uuidv4();
       await execute(
-        `INSERT INTO UserSubtitleConfig (configId, userId, exerciseId, mergedGroups, skippedSentences, createdDate)
-         VALUES (?, ?, ?, ?, ?, NOW())`,
+        `INSERT INTO UserSubtitleConfig (configId, userId, exerciseId, mergedGroups, skippedSentences, effectiveSentenceCount, createdDate)
+         VALUES (?, ?, ?, ?, ?, ?, NOW())`,
         [
           configId,
           session.userId,
           exerciseId,
           JSON.stringify(mergedGroups || []),
           JSON.stringify(skippedSentences || []),
+          effectiveSentenceCount,
         ]
       );
 
@@ -197,11 +252,12 @@ export async function PUT(
       // Update existing config
       await execute(
         `UPDATE UserSubtitleConfig 
-         SET mergedGroups = ?, skippedSentences = ?, updatedDate = NOW()
+         SET mergedGroups = ?, skippedSentences = ?, effectiveSentenceCount = ?, updatedDate = NOW()
          WHERE userId = ? AND exerciseId = ?`,
         [
           JSON.stringify(mergedGroups || []),
           JSON.stringify(skippedSentences || []),
+          effectiveSentenceCount,
           session.userId,
           exerciseId,
         ]
@@ -255,7 +311,7 @@ export async function DELETE(
     // Reset config to defaults
     await execute(
       `UPDATE UserSubtitleConfig 
-       SET mergedGroups = '[]', skippedSentences = '[]', updatedDate = NOW()
+       SET mergedGroups = '[]', skippedSentences = '[]', effectiveSentenceCount = NULL, updatedDate = NOW()
        WHERE userId = ? AND exerciseId = ?`,
       [session.userId, exerciseId]
     );
@@ -280,5 +336,50 @@ export async function DELETE(
       { error: 'Internal server error' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Compute the number of effective sentences after applying merge/skip config.
+ * Falls back to the raw subtitle count if the subtitle file cannot be fetched.
+ */
+async function computeEffectiveSentenceCount(
+  exerciseId: string,
+  mergedGroups: unknown[],
+  skippedSentences: unknown[]
+): Promise<number> {
+  try {
+    const exercise = await queryOne<Exercise>(
+      'SELECT * FROM Exercise WHERE exerciseId = ?',
+      [exerciseId]
+    );
+
+    if (!exercise) {
+      return 0;
+    }
+
+    const subtitleContent = await downloadFile(exercise.subtitleUrl);
+    const format = detectSubtitleFormat(exercise.subtitleUrl);
+
+    if (!format || !subtitleContent) {
+      return exercise.totalSentences;
+    }
+
+    const contentStr = typeof subtitleContent === 'string'
+      ? subtitleContent
+      : subtitleContent.toString('utf-8');
+
+    const rawSubtitles = parseSubtitles(contentStr, format);
+
+    const configInput: SubtitleConfigInput = {
+      mergedGroups: mergedGroups as SubtitleConfigInput['mergedGroups'],
+      skippedSentences: skippedSentences as SubtitleConfigInput['skippedSentences'],
+    };
+
+    const effectiveSubtitles = applySubtitleConfig(rawSubtitles, configInput, { omitSkipped: true });
+    return effectiveSubtitles.length;
+  } catch (error) {
+    console.error('Error computing effective sentence count:', error);
+    return 0;
   }
 }
