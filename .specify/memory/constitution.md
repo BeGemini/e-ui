@@ -1,8 +1,8 @@
 <!-- 
-SYNC IMPACT REPORT (v1.0.0)
-- Version: Initial → 1.0.0 (MINOR: Initial constitution established)
-- New principles: UI-First (shadcn), Type Safety, Full-Stack Integration, Responsive Design, Code Quality
-- Sections added: Technology Stack Constraints, Development Workflow, Code Structure Standards
+SYNC IMPACT REPORT (v1.1.0)
+- Version: 1.0.0 → 1.1.0 (MINOR: Added Avoid Over-Engineering principle)
+- New principles: Avoid Over-Engineering (不要 overwork)
+- Sections updated: Core Principles, Governance
 - Templates requiring updates: plan-template.md, spec-template.md, tasks-template.md (pending review)
 -->
 
@@ -43,6 +43,14 @@ Production code MUST be maintained with clear documentation, readable structure,
 patterns. Unit and integration tests for critical business logic are strongly recommended. 
 Linting (ESLint) MUST pass before code is committed. Code reviews MUST verify principle 
 compliance. Rationale: Maintainability, reduced bugs, knowledge transfer, long-term sustainability.
+
+### VI. Avoid Over-Engineering (不要 Overwork)
+The assistant MUST do only what the user explicitly asks for and stop once the request is 
+satisfactorily fulfilled. Avoid unnecessary validation, redundant checks, excessive edge-case 
+testing, verbose documentation, or speculative features beyond the stated scope. Do not repeat 
+the same verification or re-read unchanged files without clear purpose. When scope is unclear, 
+prefer a minimal viable implementation and ask the user before expanding. Rationale: Respects 
+user intent, reduces token and time waste, speeds up delivery, and lowers maintenance burden.
 
 ## Technology Stack Constraints
 
@@ -88,8 +96,8 @@ This constitution supersedes all conflicting practices and guidelines.
   - MAJOR: Principle removal or fundamental redefinition
   - MINOR: New principle/section or material guidance expansion
   - PATCH: Clarifications, wording refinements, corrections
-- **Compliance Review**: PRs must explicitly verify adherence to all five Core Principles
+- **Compliance Review**: PRs must explicitly verify adherence to all six Core Principles
 - **Runtime Guidance**: See README.md and app/layout.tsx for ongoing development standards
 - **Exceptions**: Non-compliant code requires exception documentation linking to a constitution amendment proposal
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-09 | **Last Amended**: 2026-09-09
+**Version**: 1.1.0 | **Ratified**: 2026-09-09 | **Last Amended**: 2026-09-15

@@ -117,6 +117,7 @@ export function WordFeedbackDisplay({
         capturedText={capturedText}
         exerciseId={exerciseId}
         sourceSentenceIndex={sentenceIndex}
+        sourceSentence={correctText}
         onOpenChange={setCreateDialogOpen}
         onCreated={() => {
           onKnowledgePointCreated?.();

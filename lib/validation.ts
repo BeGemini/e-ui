@@ -78,6 +78,12 @@ export const KnowledgePointUpdateSchema = z.object({
   message: 'At least one field (category or description) must be provided',
 });
 
+export const AiKnowledgePointTeachSchema = z.object({
+  capturedText: z.string().min(1, 'Captured text is required').max(500, 'Captured text too long'),
+  category: KnowledgePointCategorySchema,
+  sourceSentence: z.string().max(2000, 'Source sentence too long'),
+});
+
 /**
  * Validate function with error handling
  */

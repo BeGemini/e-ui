@@ -11,8 +11,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Loader2, Sparkles } from 'lucide-react';
 import { KNOWLEDGE_POINT_CATEGORIES } from '@/lib/types';
-import type { KnowledgePointCategory } from '@/lib/types';
+import type { KnowledgePointCategory, AiKnowledgePointTeachResponse } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface KnowledgePointCreateDialogProps {
@@ -20,6 +21,7 @@ interface KnowledgePointCreateDialogProps {
   capturedText: string;
   exerciseId: string;
   sourceSentenceIndex: number;
+  sourceSentence: string;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
 }
@@ -29,12 +31,14 @@ export function KnowledgePointCreateDialog({
   capturedText,
   exerciseId,
   sourceSentenceIndex,
+  sourceSentence,
   onOpenChange,
   onCreated,
 }: KnowledgePointCreateDialogProps) {
   const [category, setCategory] = useState<KnowledgePointCategory>('word');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async () => {
@@ -77,8 +81,43 @@ export function KnowledgePointCreateDialog({
     }
   };
 
+  const handleAiTeach = async () => {
+    if (isGenerating) return;
+
+    setIsGenerating(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/ai/knowledge-point-teach', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          capturedText,
+          category,
+          sourceSentence,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to generate AI explanation');
+      }
+
+      const result = (await response.json()) as { data: AiKnowledgePointTeachResponse };
+      setDescription(result.data.explanation);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate AI explanation');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleClose = () => {
-    if (isSubmitting) return;
+    if (isSubmitting || isGenerating) return;
     setDescription('');
     setError('');
     onOpenChange(false);
@@ -117,13 +156,37 @@ export function KnowledgePointCreateDialog({
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="description" className="text-sm font-medium">Note</label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="description" className="text-sm font-medium">Note</label>
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={handleAiTeach}
+                disabled={isGenerating}
+                className="h-8 gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 px-3 text-xs font-semibold text-white hover:from-violet-700 hover:to-indigo-700"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    AI Search
+                  </>
+                )}
+              </Button>
+            </div>
             <Textarea
               id="description"
-              placeholder="Enter your note..."
+              placeholder="Enter your note or click AI Search to generate one..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={4}
+              rows={6}
+              disabled={isGenerating}
+              className="max-h-60 overflow-y-auto resize-y"
             />
           </div>
 
@@ -131,10 +194,10 @@ export function KnowledgePointCreateDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
+          <Button variant="outline" onClick={handleClose} disabled={isSubmitting || isGenerating}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || isGenerating}>
             {isSubmitting ? 'Saving...' : 'Save'}
           </Button>
         </DialogFooter>

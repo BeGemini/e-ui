@@ -351,6 +351,42 @@ export interface ExerciseWithKnowledgePointCount {
   knowledgePointCount: number;
 }
 
+// ===== AI KNOWLEDGE POINT TEACHING =====
+
+export interface AiKnowledgePointTeachRequest {
+  capturedText: string;
+  category: KnowledgePointCategory;
+  sourceSentence: string;
+}
+
+export interface AiKnowledgePointTeachResponse {
+  explanation: string;
+}
+
+export interface DeepSeekMessage {
+  role: 'system' | 'user';
+  content: string;
+}
+
+export interface DeepSeekChoice {
+  message: DeepSeekMessage;
+  index: number;
+  finish_reason: string;
+}
+
+export interface DeepSeekResponse {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: DeepSeekChoice[];
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
 // ===== ENVIRONMENT VARIABLES TYPE =====
 
 export interface EnvironmentVariables {
@@ -364,6 +400,8 @@ export interface EnvironmentVariables {
   NODE_ENV: 'development' | 'production' | 'test';
   API_BASE_URL?: string;
   LOG_LEVEL?: 'debug' | 'info' | 'warn' | 'error';
+  DEEPSEEK_API_KEY?: string;
+  DEEPSEEK_MODEL?: string;
 }
 
 // Knowledge point category colors (application constants)
