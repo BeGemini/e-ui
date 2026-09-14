@@ -191,7 +191,7 @@ async function seedDatabase() {
 
     // Create sample progress for first user
     console.log('📊 Creating sample progress records...');
-    const exercises = await query<Array<{ exerciseId: string }>>(
+    const exercises = await query<{ exerciseId: string }>(
       'SELECT exerciseId FROM Exercise LIMIT 5'
     );
 
@@ -214,7 +214,7 @@ async function seedDatabase() {
     console.log('   Learner: learner@example.com / Learner123!');
     console.log('\n📝 Available invitation codes (unused):');
 
-    const unusedCodes = await query<Array<{ code: string; expiryDate: string }>>(
+    const unusedCodes = await query<{ code: string; expiryDate: string }>(
       'SELECT code, expiryDate FROM InvitationCode WHERE isUsed = FALSE LIMIT 3'
     );
     for (const record of unusedCodes) {

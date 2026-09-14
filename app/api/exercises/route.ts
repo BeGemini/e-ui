@@ -7,7 +7,7 @@ import { Series, Season, Episode, Exercise, UserExerciseProgress } from '@/lib/t
 interface ExerciseInHierarchy extends Exercise {
   completed?: boolean;
   currentProgress?: number;
-  totalSentences?: number;
+  knowledgePointCount?: number;
 }
 
 interface EpisodeInHierarchy extends Episode {
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     // Build base query
     let seriesQuery = 'SELECT * FROM Series';
-    const seriesParams: any[] = [];
+    const seriesParams: (string | number | boolean | null)[] = [];
 
     if (difficulty) {
       seriesQuery += ' WHERE difficulty = ?';
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
         for (const episode of episodes) {
           // Fetch exercises for this episode
           let exerciseQuery = 'SELECT * FROM Exercise WHERE episodeId = ?';
-          const exerciseParams: any[] = [episode.episodeId];
+          const exerciseParams: (string | number | boolean | null)[] = [episode.episodeId];
 
           // Note: Exercise table doesn't have a 'title' column
           // Sort by createdDate instead
@@ -95,10 +95,18 @@ export async function GET(request: NextRequest) {
               [session.userId, exercise.exerciseId]
             );
 
+            // Get user's knowledge point count for this exercise
+            const knowledgePointCountResult = await queryOne<{ count: number }>(
+              `SELECT COUNT(*) as count FROM KnowledgePoint
+               WHERE userId = ? AND exerciseId = ?`,
+              [session.userId, exercise.exerciseId]
+            );
+
             const exerciseData: ExerciseInHierarchy = {
               ...exercise,
               completed: progress?.isCompleted ?? false,
               currentProgress: progress?.currentSentenceIndex ?? 0,
+              knowledgePointCount: knowledgePointCountResult?.count ?? 0,
             };
 
             exercisesWithProgress.push(exerciseData);

@@ -79,25 +79,69 @@ async function runMigration() {
 
     console.log(`✅ Connected to database "${database}"`);
 
-    // Read migration file
-    const migrationFile = path.join(
-      __dirname,
-      '../migrations/001_initial_schema.sql'
-    );
+    // Ensure migration tracking table exists
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS __migrations (
+        filename VARCHAR(255) PRIMARY KEY,
+        appliedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
 
-    if (!fs.existsSync(migrationFile)) {
-      console.error(`❌ Migration file not found: ${migrationFile}`);
+    // Discover all migration files in order
+    const migrationsDir = path.join(__dirname, '../migrations');
+    const migrationFiles = fs
+      .readdirSync(migrationsDir)
+      .filter((file) => file.endsWith('.sql'))
+      .sort();
+
+    if (migrationFiles.length === 0) {
+      console.error(`❌ No migration files found in ${migrationsDir}`);
       await connection.end();
       process.exit(1);
     }
 
-    const sqlContent = fs.readFileSync(migrationFile, 'utf-8');
-    console.log(`📄 Read migration file (${sqlContent.length} bytes)`);
+    // Determine already-applied migrations
+    const [appliedRows] = await connection.query(
+      'SELECT filename FROM __migrations'
+    );
+    const appliedFiles = new Set(
+      (appliedRows as Array<{ filename: string }>).map((row) => row.filename)
+    );
 
-    // Execute all SQL at once with multipleStatements enabled
-    console.log('🔄 Executing database schema...');
-    await connection.query(sqlContent);
-    console.log(`✅ Schema created successfully`);
+    console.log(`📄 Found ${migrationFiles.length} migration file(s)`);
+
+    for (const migrationFile of migrationFiles) {
+      if (appliedFiles.has(migrationFile)) {
+        console.log(`⏭️  Skipping already applied ${migrationFile}`);
+        continue;
+      }
+
+      const migrationPath = path.join(migrationsDir, migrationFile);
+      const sqlContent = fs.readFileSync(migrationPath, 'utf-8');
+      console.log(`🔄 Applying ${migrationFile}...`);
+
+      try {
+        await connection.query(sqlContent);
+      } catch (error) {
+        const err = error as { code?: string };
+        if (
+          err.code === 'ER_DUP_FIELDNAME' ||
+          err.code === 'ER_TABLE_EXISTS_ERROR' ||
+          err.code === 'ER_DUP_KEYNAME' ||
+          err.code === 'ER_CANT_DROP_FIELD_OR_KEY'
+        ) {
+          console.log(`⚠️  ${migrationFile} appears already applied (ignored duplicate)`);
+        } else {
+          throw error;
+        }
+      }
+
+      await connection.query('INSERT INTO __migrations (filename) VALUES (?)', [
+        migrationFile,
+      ]);
+    }
+
+    console.log(`✅ All migrations applied successfully`);
 
     // Verify tables
     const [rows] = await connection.query(

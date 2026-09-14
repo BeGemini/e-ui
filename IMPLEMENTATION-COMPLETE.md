@@ -76,9 +76,39 @@
 ### ✅ Phase 6: Optimization & Production Readiness (T069-T073)
 - [x] Database query caching (lib/cache.ts)
 - [x] API response caching layer
-- [x] Frontend bundle optimization  
+- [x] Frontend bundle optimization
 - [x] Server-side rendering optimizations
 - [x] Input validation & sanitization schemas (lib/validation.ts)
+
+### ✅ Feature 003: Exercise Knowledge Points (2026-09-13)
+- [x] Database migration for `KnowledgePoint` table (`migrations/003_add_knowledge_points.sql`)
+- [x] Type definitions, validation schemas, and category color constants (`lib/types.ts`, `lib/validation.ts`)
+- [x] Text normalization and highlight segmentation utilities (`lib/knowledge-point-utils.ts`)
+- [x] Knowledge point CRUD API routes with ownership checks
+  - `app/api/knowledge-points/[exerciseId]/route.ts` (GET/POST)
+  - `app/api/knowledge-points/[exerciseId]/[knowledgePointId]/route.ts` (PATCH/DELETE)
+- [x] Practice page returns knowledge points for the exercise (`app/api/practice/[exerciseId]/route.ts`)
+- [x] Exercise list returns `knowledgePointCount` per exercise (`app/api/exercises/route.ts`)
+- [x] Text selection, create dialog, and highlighted Correct Text components
+  - `app/components/knowledge-point/KnowledgePointTextSelector.tsx`
+  - `app/components/knowledge-point/KnowledgePointCreateDialog.tsx`
+  - `app/components/knowledge-point/HighlightedCorrectText.tsx`
+  - Integrated into `app/components/dictation/WordFeedbackDisplay.tsx`
+- [x] Dashboard knowledge point indicator and navigation
+  - `app/components/exercise-list/ExerciseDetail.tsx`
+  - `app/dashboard/[exerciseId]/knowledge-points/page.tsx`
+  - `app/components/knowledge-point-list/KnowledgePointList.tsx`
+- [x] Unit tests for `lib/knowledge-point-utils.ts`
+- [x] Integration tests for knowledge points API
+- [x] E2E test spec for dashboard navigation and list page
+- [x] Migration applied to local database and verified
+
+**Usage Notes**:
+- During practice, select any word/phrase/sentence in the **Correct Text** feedback area.
+- A floating menu appears; click it to open the create dialog.
+- Choose a category (Word/Phrase/Sentence), add a note, and save.
+- The captured text is highlighted with the category color; overlapping highlights blend colors.
+- The dashboard exercise card shows the knowledge point count; click the book icon to view, edit, or delete knowledge points.
 
 ---
 

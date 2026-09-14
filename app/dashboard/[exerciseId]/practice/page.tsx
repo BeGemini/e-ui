@@ -8,6 +8,7 @@ import { DictationInput } from '@/app/components/dictation/DictationInput';
 import { WordFeedbackDisplay } from '@/app/components/dictation/WordFeedbackDisplay';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import type { KnowledgePoint } from '@/lib/types';
 
 interface Subtitle {
   index: number;
@@ -30,6 +31,7 @@ interface PracticeData {
     isCompleted: boolean;
     overallAccuracy?: number;
   };
+  knowledgePoints: KnowledgePoint[];
 }
 
 interface WordFeedback {
@@ -278,11 +280,23 @@ export default function PracticePage() {
     );
   }
 
-  if (!practiceData || !currentSubtitle) {
+  if (!practiceData) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <p className="text-red-600 mb-4">Unable to load exercise data</p>
+          <Button onClick={() => router.back()}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentSubtitle) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">No subtitles available for this exercise</p>
+          <p className="text-gray-600 mb-4">Please check the subtitle file or contact an administrator.</p>
           <Button onClick={() => router.back()}>Go Back</Button>
         </div>
       </div>
@@ -342,10 +356,28 @@ export default function PracticePage() {
               {currentFeedback && (
                 <WordFeedbackDisplay
                   correctText={currentSubtitle.text}
-                  userText={userInput}
                   wordFeedback={currentFeedback.wordFeedback}
                   accuracy={currentFeedback.accuracy}
                   isVisible={true}
+                  exerciseId={exerciseId}
+                  sentenceIndex={currentSubtitle.index}
+                  knowledgePoints={practiceData?.knowledgePoints ?? []}
+                  onKnowledgePointCreated={() => {
+                    // Refresh practice data to include the new knowledge point
+                    const fetchPracticeData = async () => {
+                      const token = localStorage.getItem('token');
+                      const response = await fetch(`/api/practice/${exerciseId}`, {
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                        },
+                      });
+                      if (response.ok) {
+                        const data = await response.json();
+                        setPracticeData(data.data);
+                      }
+                    };
+                    fetchPracticeData();
+                  }}
                 />
               )}
 

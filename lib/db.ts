@@ -68,13 +68,13 @@ export async function closeDatabase(): Promise<void> {
 /**
  * Execute a query that returns rows
  */
-export async function query<T extends Record<string, unknown>[] = RowDataPacket[]>(
+export async function query<T = RowDataPacket>(
   sql: string,
   values?: (string | number | boolean | null)[]
-): Promise<T> {
+): Promise<T[]> {
   const pool = getPool();
   const [rows] = await pool.execute<RowDataPacket[]>(sql, values);
-  return rows as unknown as T;
+  return rows as unknown as T[];
 }
 
 /**
@@ -96,7 +96,7 @@ export async function queryOne<T = RowDataPacket>(
   sql: string,
   values?: (string | number | boolean | null)[]
 ): Promise<T | null> {
-  const rows = await query<T[]>(sql, values);
+  const rows = await query<T>(sql, values);
   return rows.length > 0 ? rows[0] : null;
 }
 

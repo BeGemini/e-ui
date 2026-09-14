@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Play, RotateCcw } from 'lucide-react';
+import { Play, RotateCcw, BookOpen } from 'lucide-react';
 
 interface Exercise {
   exerciseId: string;
@@ -12,6 +12,7 @@ interface Exercise {
   completed?: boolean;
   currentProgress?: number;
   totalSentences?: number;
+  knowledgePointCount?: number;
 }
 
 interface ExerciseDetailProps {
@@ -27,6 +28,10 @@ export default function ExerciseDetail({ exercise }: ExerciseDetailProps) {
 
   const handleViewDetails = () => {
     router.push(`/dashboard/${exercise.exerciseId}`);
+  };
+
+  const handleViewKnowledgePoints = () => {
+    router.push(`/dashboard/${exercise.exerciseId}/knowledge-points`);
   };
 
   const isStarted = (exercise.currentProgress ?? 0) > 0;
@@ -59,24 +64,35 @@ export default function ExerciseDetail({ exercise }: ExerciseDetailProps) {
             </div>
           )}
         </div>
-        <Button
-          size="sm"
-          onClick={handleStartPractice}
-          className="shrink-0"
-          variant={isStarted ? 'outline' : 'default'}
-        >
-          {isStarted ? (
-            <>
-              <RotateCcw className="h-3 w-3 mr-1" />
-              Resume
-            </>
-          ) : (
-            <>
-              <Play className="h-3 w-3 mr-1" />
-              Start
-            </>
-          )}
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleViewKnowledgePoints}
+            className="flex items-center gap-1"
+            title="Knowledge points"
+          >
+            <BookOpen className="h-3 w-3" />
+            <span>{exercise.knowledgePointCount ?? 0}</span>
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleStartPractice}
+            variant={isStarted ? 'outline' : 'default'}
+          >
+            {isStarted ? (
+              <>
+                <RotateCcw className="h-3 w-3 mr-1" />
+                Resume
+              </>
+            ) : (
+              <>
+                <Play className="h-3 w-3 mr-1" />
+                Start
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );

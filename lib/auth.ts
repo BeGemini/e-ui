@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { type Secret } from 'jsonwebtoken';
+import type { StringValue } from 'ms';
 import { User } from './types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-production';
@@ -37,8 +38,8 @@ export function generateJWT(user: { userId: string; email: string; role: string 
       email: user.email,
       role: user.role,
     },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRY }
+    JWT_SECRET as Secret,
+    { expiresIn: JWT_EXPIRY as StringValue }
   );
 }
 

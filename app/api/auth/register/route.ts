@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { hashPassword, validatePasswordStrength, validateEmail } from '@/lib/auth';
+import { hashPassword, validatePasswordStrength, validateEmail, generateJWT } from '@/lib/auth';
 import { validateCode, markCodeAsUsed, getInvitationCodeByString } from '@/lib/invitation-codes';
-import { setSessionCookie, generateJWT } from '@/lib/auth';
+import { setSessionCookie } from '@/lib/session';
 import { initializeDatabase, execute, queryOne } from '@/lib/db';
 import { User } from '@/lib/types';
 

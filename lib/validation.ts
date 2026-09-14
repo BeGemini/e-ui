@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+import type { KnowledgePointCategory } from './types';
 
 /**
  * Auth Schemas
@@ -55,15 +56,36 @@ export const SubtitleConfigSchema = z.object({
 });
 
 /**
+ * Knowledge Point Schemas
+ */
+export const KnowledgePointCategorySchema: z.ZodType<KnowledgePointCategory> = z.enum([
+  'word',
+  'phrase',
+  'sentence',
+]);
+
+export const KnowledgePointCreateSchema = z.object({
+  sourceSentenceIndex: z.number().int().min(0, 'Invalid sentence index'),
+  capturedText: z.string().min(1, 'Captured text is required').max(500, 'Captured text too long'),
+  category: KnowledgePointCategorySchema,
+  description: z.string().min(1, 'Description is required').max(2000, 'Description too long'),
+});
+
+export const KnowledgePointUpdateSchema = z.object({
+  category: KnowledgePointCategorySchema.optional(),
+  description: z.string().min(1, 'Description is required').max(2000, 'Description too long').optional(),
+}).refine((data) => data.category !== undefined || data.description !== undefined, {
+  message: 'At least one field (category or description) must be provided',
+});
+
+/**
  * Validate function with error handling
  */
 export async function validate<T>(schema: z.ZodSchema, data: unknown): Promise<T> {
-  try {
-    return schema.parse(data) as T;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new Error(`Validation error: ${error.errors.map((e) => e.message).join(', ')}`);
-    }
-    throw error;
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    const issues = (result.error as { issues?: { message: string }[] }).issues ?? [];
+    throw new Error(`Validation error: ${issues.map((e) => e.message).join(', ')}`);
   }
+  return result.data as T;
 }

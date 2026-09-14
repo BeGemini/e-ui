@@ -1,5 +1,12 @@
 'use client';
 
+import { useState } from 'react';
+import { HighlightedCorrectText } from '@/app/components/knowledge-point/HighlightedCorrectText';
+import { KnowledgePointTextSelector } from '@/app/components/knowledge-point/KnowledgePointTextSelector';
+import { KnowledgePointCreateDialog } from '@/app/components/knowledge-point/KnowledgePointCreateDialog';
+import { KnowledgePointEditDialog } from '@/app/components/knowledge-point/KnowledgePointEditDialog';
+import type { KnowledgePoint } from '@/lib/types';
+
 interface WordFeedback {
   word: string;
   userWord: string;
@@ -8,19 +15,29 @@ interface WordFeedback {
 
 interface WordFeedbackDisplayProps {
   correctText: string;
-  userText: string;
   wordFeedback?: WordFeedback[];
   accuracy: number;
   isVisible: boolean;
+  exerciseId: string;
+  sentenceIndex: number;
+  knowledgePoints?: KnowledgePoint[];
+  onKnowledgePointCreated?: () => void;
 }
 
 export function WordFeedbackDisplay({
   correctText,
-  userText,
   wordFeedback = [],
   accuracy,
   isVisible,
+  exerciseId,
+  sentenceIndex,
+  knowledgePoints = [],
+  onKnowledgePointCreated,
 }: WordFeedbackDisplayProps) {
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [capturedText, setCapturedText] = useState('');
+  const [editingPoint, setEditingPoint] = useState<KnowledgePoint | null>(null);
+
   if (!isVisible || !wordFeedback || wordFeedback.length === 0) {
     return null;
   }
@@ -51,6 +68,15 @@ export function WordFeedbackDisplay({
     }
   };
 
+  const handleCreate = (text: string) => {
+    setCapturedText(text);
+    setCreateDialogOpen(true);
+  };
+
+  const handleEdit = (knowledgePoint: KnowledgePoint) => {
+    setEditingPoint(knowledgePoint);
+  };
+
   return (
     <div className="space-y-4 rounded-lg border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-4">
       {/* Accuracy Header */}
@@ -75,14 +101,40 @@ export function WordFeedbackDisplay({
       {/* Original Text */}
       <div className="space-y-2">
         <p className="text-sm font-medium text-gray-700">Correct Text:</p>
-        <div className="flex flex-wrap gap-1 rounded bg-blue-50 p-3">
-          {correctText.split(/\s+/).map((word, idx) => (
-            <span key={idx} className="text-gray-800">
-              {word}
-            </span>
-          ))}
-        </div>
+        <KnowledgePointTextSelector sentenceText={correctText} onCreate={handleCreate}>
+          <div className="rounded bg-blue-50 p-3">
+            <HighlightedCorrectText
+              text={correctText}
+              knowledgePoints={knowledgePoints}
+              onEditKnowledgePoint={handleEdit}
+            />
+          </div>
+        </KnowledgePointTextSelector>
       </div>
+
+      <KnowledgePointCreateDialog
+        open={createDialogOpen}
+        capturedText={capturedText}
+        exerciseId={exerciseId}
+        sourceSentenceIndex={sentenceIndex}
+        onOpenChange={setCreateDialogOpen}
+        onCreated={() => {
+          onKnowledgePointCreated?.();
+          setCreateDialogOpen(false);
+        }}
+      />
+
+      <KnowledgePointEditDialog
+        key={editingPoint?.knowledgePointId ?? 'closed'}
+        open={!!editingPoint}
+        knowledgePoint={editingPoint}
+        exerciseId={exerciseId}
+        onOpenChange={() => setEditingPoint(null)}
+        onSaved={() => {
+          onKnowledgePointCreated?.();
+          setEditingPoint(null);
+        }}
+      />
 
       {/* User Input with Feedback */}
       <div className="space-y-2">

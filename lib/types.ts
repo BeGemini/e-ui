@@ -119,6 +119,10 @@ export interface MergeGroup {
   endIndex: number;
   label?: string;
   customText?: string;
+  /** @deprecated Legacy field used during migration */
+  start?: number;
+  /** @deprecated Legacy field used during migration */
+  end?: number;
 }
 
 // ===== SUBTITLE PARSING =====
@@ -308,6 +312,45 @@ export interface CosConfig {
   secretKey: string;
 }
 
+// ===== KNOWLEDGE POINT ENTITIES =====
+
+export type KnowledgePointCategory = 'word' | 'phrase' | 'sentence';
+
+export interface KnowledgePointCategoryConfig {
+  category: KnowledgePointCategory;
+  label: string;
+  colorClass: string;
+  fallbackColor: string;
+}
+
+export interface KnowledgePoint {
+  knowledgePointId: string;
+  userId: string;
+  exerciseId: string;
+  sourceSentenceIndex: number;
+  capturedText: string;
+  category: KnowledgePointCategory;
+  description: string;
+  createdDate: string;
+  updatedDate: string;
+}
+
+export interface KnowledgePointCreateRequest {
+  sourceSentenceIndex: number;
+  capturedText: string;
+  category: KnowledgePointCategory;
+  description: string;
+}
+
+export interface KnowledgePointUpdateRequest {
+  category?: KnowledgePointCategory;
+  description?: string;
+}
+
+export interface ExerciseWithKnowledgePointCount {
+  knowledgePointCount: number;
+}
+
 // ===== ENVIRONMENT VARIABLES TYPE =====
 
 export interface EnvironmentVariables {
@@ -322,3 +365,16 @@ export interface EnvironmentVariables {
   API_BASE_URL?: string;
   LOG_LEVEL?: 'debug' | 'info' | 'warn' | 'error';
 }
+
+// Knowledge point category colors (application constants)
+export const KNOWLEDGE_POINT_CATEGORIES: KnowledgePointCategoryConfig[] = [
+  { category: 'word', label: 'Word', colorClass: 'bg-blue-200 text-blue-900', fallbackColor: '#bfdbfe' },
+  { category: 'phrase', label: 'Phrase', colorClass: 'bg-green-200 text-green-900', fallbackColor: '#bbf7d0' },
+  { category: 'sentence', label: 'Sentence', colorClass: 'bg-purple-200 text-purple-900', fallbackColor: '#e9d5ff' },
+];
+
+export const KNOWLEDGE_POINT_CATEGORY_MAP: Record<KnowledgePointCategory, KnowledgePointCategoryConfig> = {
+  word: KNOWLEDGE_POINT_CATEGORIES[0],
+  phrase: KNOWLEDGE_POINT_CATEGORIES[1],
+  sentence: KNOWLEDGE_POINT_CATEGORIES[2],
+};

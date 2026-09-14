@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { verifySessionFromRequest } from '@/lib/session';
 import { initializeDatabase, queryOne, execute } from '@/lib/db';
-import { UserExerciseProgress, UserSubtitleConfig, Exercise } from '@/lib/types';
+import { UserExerciseProgress, UserSubtitleConfig, Exercise, MergeGroup } from '@/lib/types';
 import { downloadFile } from '@/lib/cos-client';
 import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
 import { applySubtitleConfig, SubtitleConfigInput } from '@/lib/utils';
