@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Pencil, Eye } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { KNOWLEDGE_POINT_CATEGORIES } from '@/lib/types';
 import type { KnowledgePoint, KnowledgePointCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -34,6 +36,7 @@ export function KnowledgePointEditDialog({
     knowledgePoint?.category ?? 'word'
   );
   const [description, setDescription] = useState(knowledgePoint?.description ?? '');
+  const [isPreview, setIsPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -81,6 +84,7 @@ export function KnowledgePointEditDialog({
 
   const handleClose = () => {
     if (isSubmitting) return;
+    setIsPreview(false);
     onOpenChange(false);
   };
 
@@ -117,14 +121,40 @@ export function KnowledgePointEditDialog({
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="edit-description" className="text-sm font-medium">Note</label>
-            <Textarea
-              id="edit-description"
-              placeholder="Enter your note..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-            />
+            <div className="flex items-center justify-between">
+              <label htmlFor="edit-description" className="text-sm font-medium">Note</label>
+              {description && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsPreview((prev) => !prev)}
+                  disabled={isSubmitting}
+                  className="h-8 w-8"
+                  title={isPreview ? 'Edit' : 'Preview'}
+                >
+                  {isPreview ? (
+                    <Pencil className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
+            </div>
+            {isPreview ? (
+              <div className="max-h-60 min-h-24 overflow-y-auto rounded-lg border border-input bg-transparent px-2.5 py-2 prose prose-sm dark:prose-invert">
+                <ReactMarkdown>{description}</ReactMarkdown>
+              </div>
+            ) : (
+              <Textarea
+                id="edit-description"
+                placeholder="Enter your note..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={6}
+                className="max-h-60 overflow-y-auto resize-y"
+              />
+            )}
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}

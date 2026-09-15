@@ -11,7 +11,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, Pencil, Eye } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { KNOWLEDGE_POINT_CATEGORIES } from '@/lib/types';
 import type { KnowledgePointCategory, AiKnowledgePointTeachResponse } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -39,6 +40,7 @@ export function KnowledgePointCreateDialog({
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPreview, setIsPreview] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async () => {
@@ -109,6 +111,7 @@ export function KnowledgePointCreateDialog({
 
       const result = (await response.json()) as { data: AiKnowledgePointTeachResponse };
       setDescription(result.data.explanation);
+      setIsPreview(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate AI explanation');
     } finally {
@@ -119,6 +122,7 @@ export function KnowledgePointCreateDialog({
   const handleClose = () => {
     if (isSubmitting || isGenerating) return;
     setDescription('');
+    setIsPreview(false);
     setError('');
     onOpenChange(false);
   };
@@ -158,36 +162,61 @@ export function KnowledgePointCreateDialog({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label htmlFor="description" className="text-sm font-medium">Note</label>
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                onClick={handleAiTeach}
-                disabled={isGenerating}
-                className="h-8 gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 px-3 text-xs font-semibold text-white hover:from-violet-700 hover:to-indigo-700"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Searching...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-3.5 w-3.5" />
-                    AI Search
-                  </>
+              <div className="flex items-center gap-1.5">
+                {description && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsPreview((prev) => !prev)}
+                    disabled={isGenerating}
+                    className="h-8 w-8"
+                    title={isPreview ? 'Edit' : 'Preview'}
+                  >
+                    {isPreview ? (
+                      <Pencil className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
                 )}
-              </Button>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={handleAiTeach}
+                  disabled={isGenerating}
+                  className="h-8 gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 px-3 text-xs font-semibold text-white hover:from-violet-700 hover:to-indigo-700"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5" />
+                      AI Search
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
-            <Textarea
-              id="description"
-              placeholder="Enter your note or click AI Search to generate one..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={6}
-              disabled={isGenerating}
-              className="max-h-60 overflow-y-auto resize-y"
-            />
+            {isPreview ? (
+              <div className="max-h-60 min-h-24 overflow-y-auto rounded-lg border border-input bg-transparent px-2.5 py-2 prose prose-sm dark:prose-invert">
+                <ReactMarkdown>{description}</ReactMarkdown>
+              </div>
+            ) : (
+              <Textarea
+                id="description"
+                placeholder="Enter your note or click AI Search to generate one..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={6}
+                disabled={isGenerating}
+                className="max-h-60 overflow-y-auto resize-y"
+              />
+            )}
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
