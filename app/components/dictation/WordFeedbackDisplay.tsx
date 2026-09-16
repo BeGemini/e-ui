@@ -5,6 +5,7 @@ import { HighlightedCorrectText } from '@/app/components/knowledge-point/Highlig
 import { KnowledgePointTextSelector } from '@/app/components/knowledge-point/KnowledgePointTextSelector';
 import { KnowledgePointCreateDialog } from '@/app/components/knowledge-point/KnowledgePointCreateDialog';
 import { KnowledgePointEditDialog } from '@/app/components/knowledge-point/KnowledgePointEditDialog';
+import { AiSearchResultDialog } from '@/app/components/knowledge-point/AiSearchResultDialog';
 import type { KnowledgePoint } from '@/lib/types';
 
 interface WordFeedback {
@@ -35,8 +36,11 @@ export function WordFeedbackDisplay({
   onKnowledgePointCreated,
 }: WordFeedbackDisplayProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createInitialDescription, setCreateInitialDescription] = useState('');
   const [capturedText, setCapturedText] = useState('');
   const [editingPoint, setEditingPoint] = useState<KnowledgePoint | null>(null);
+  const [aiSearchOpen, setAiSearchOpen] = useState(false);
+  const [aiSearchText, setAiSearchText] = useState('');
 
   if (!isVisible || !wordFeedback || wordFeedback.length === 0) {
     return null;
@@ -70,6 +74,18 @@ export function WordFeedbackDisplay({
 
   const handleCreate = (text: string) => {
     setCapturedText(text);
+    setCreateInitialDescription('');
+    setCreateDialogOpen(true);
+  };
+
+  const handleAiSearch = (text: string) => {
+    setAiSearchText(text);
+    setAiSearchOpen(true);
+  };
+
+  const handleSaveAsKnowledgePoint = (description: string) => {
+    setCapturedText(aiSearchText);
+    setCreateInitialDescription(description);
     setCreateDialogOpen(true);
   };
 
@@ -101,7 +117,7 @@ export function WordFeedbackDisplay({
       {/* Original Text */}
       <div className="space-y-2">
         <p className="text-sm font-medium text-gray-700">Correct Text:</p>
-        <KnowledgePointTextSelector sentenceText={correctText} onCreate={handleCreate}>
+        <KnowledgePointTextSelector sentenceText={correctText} onCreate={handleCreate} onAiSearch={handleAiSearch}>
           <div className="rounded bg-blue-50 p-3">
             <HighlightedCorrectText
               text={correctText}
@@ -113,16 +129,26 @@ export function WordFeedbackDisplay({
       </div>
 
       <KnowledgePointCreateDialog
+        key={`create-kp-${capturedText}-${createInitialDescription}`}
         open={createDialogOpen}
         capturedText={capturedText}
         exerciseId={exerciseId}
         sourceSentenceIndex={sentenceIndex}
         sourceSentence={correctText}
+        initialDescription={createInitialDescription}
         onOpenChange={setCreateDialogOpen}
         onCreated={() => {
           onKnowledgePointCreated?.();
           setCreateDialogOpen(false);
         }}
+      />
+
+      <AiSearchResultDialog
+        open={aiSearchOpen}
+        capturedText={aiSearchText}
+        sourceSentence={correctText}
+        onOpenChange={setAiSearchOpen}
+        onSaveAsKnowledgePoint={handleSaveAsKnowledgePoint}
       />
 
       <KnowledgePointEditDialog

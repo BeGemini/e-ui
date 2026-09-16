@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 import { normalizeSelectionToWholeWords } from '@/lib/knowledge-point-utils';
 
 interface SelectionState {
@@ -15,12 +15,14 @@ interface KnowledgePointTextSelectorProps {
   sentenceText: string;
   children: React.ReactNode;
   onCreate: (capturedText: string) => void;
+  onAiSearch?: (capturedText: string) => void;
 }
 
 export function KnowledgePointTextSelector({
   sentenceText,
   children,
   onCreate,
+  onAiSearch,
 }: KnowledgePointTextSelectorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState<SelectionState | null>(null);
@@ -75,6 +77,13 @@ export function KnowledgePointTextSelector({
     window.getSelection()?.removeAllRanges();
   };
 
+  const handleAiSearch = () => {
+    if (!selection || !onAiSearch) return;
+    onAiSearch(selection.text);
+    setSelection(null);
+    window.getSelection()?.removeAllRanges();
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     // Only clear selection when clicking the text content, not the floating button
     if (e.target instanceof Element && e.target.closest('[data-kp-floating-button]')) {
@@ -88,7 +97,7 @@ export function KnowledgePointTextSelector({
       {children}
       {selection && (
         <div
-          className="fixed z-50"
+          className="fixed z-50 flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg"
           style={{
             left: selection.x,
             top: selection.y,
@@ -100,11 +109,23 @@ export function KnowledgePointTextSelector({
             size="sm"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={handleCreate}
-            className="shadow-md"
+            className="shadow-sm"
           >
             <Plus className="mr-1 h-4 w-4" />
             New Knowledge Point
           </Button>
+          {onAiSearch && (
+            <Button
+              size="sm"
+              variant="outline"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={handleAiSearch}
+              className="gap-1 border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800"
+            >
+              <Sparkles className="h-4 w-4" />
+              AI Search
+            </Button>
+          )}
         </div>
       )}
     </div>

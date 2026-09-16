@@ -14,8 +14,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Sparkles, Pencil, Eye } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { KNOWLEDGE_POINT_CATEGORIES } from '@/lib/types';
-import type { KnowledgePointCategory, AiKnowledgePointTeachResponse } from '@/lib/types';
+import type { KnowledgePointCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useAiKnowledgePointSearch } from '@/hooks/use-ai-knowledge-point-search';
 
 interface KnowledgePointCreateDialogProps {
   open: boolean;
@@ -23,6 +24,7 @@ interface KnowledgePointCreateDialogProps {
   exerciseId: string;
   sourceSentenceIndex: number;
   sourceSentence: string;
+  initialDescription?: string;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
 }
@@ -33,15 +35,16 @@ export function KnowledgePointCreateDialog({
   exerciseId,
   sourceSentenceIndex,
   sourceSentence,
+  initialDescription = '',
   onOpenChange,
   onCreated,
 }: KnowledgePointCreateDialogProps) {
   const [category, setCategory] = useState<KnowledgePointCategory>('word');
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(initialDescription);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
   const [error, setError] = useState('');
+  const { isGenerating, search: aiSearch, reset: resetAiSearch } = useAiKnowledgePointSearch();
 
   const handleSubmit = async () => {
     if (!description.trim()) {
@@ -84,38 +87,18 @@ export function KnowledgePointCreateDialog({
   };
 
   const handleAiTeach = async () => {
-    if (isGenerating) return;
-
-    setIsGenerating(true);
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/ai/knowledge-point-teach', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          capturedText,
-          category,
-          sourceSentence,
-        }),
+      const explanation = await aiSearch({
+        capturedText,
+        category,
+        sourceSentence,
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to generate AI explanation');
-      }
-
-      const result = (await response.json()) as { data: AiKnowledgePointTeachResponse };
-      setDescription(result.data.explanation);
+      setDescription(explanation);
       setIsPreview(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate AI explanation');
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -124,6 +107,7 @@ export function KnowledgePointCreateDialog({
     setDescription('');
     setIsPreview(false);
     setError('');
+    resetAiSearch();
     onOpenChange(false);
   };
 
