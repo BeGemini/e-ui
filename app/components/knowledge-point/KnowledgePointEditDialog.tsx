@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Pencil, Eye } from 'lucide-react';
@@ -89,16 +89,16 @@ export function KnowledgePointEditDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Edit Knowledge Point</DialogTitle>
-          <DialogDescription>
+    <Drawer open={open} onOpenChange={handleClose} swipeDirection="right">
+      <DrawerContent className="sm:max-w-md">
+        <DrawerHeader>
+          <DrawerTitle>Edit Knowledge Point</DrawerTitle>
+          <DrawerDescription>
             Update the category and note for &quot;{knowledgePoint?.capturedText}&quot;.
-          </DialogDescription>
-        </DialogHeader>
+          </DrawerDescription>
+        </DrawerHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 overflow-y-auto p-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Category</label>
             <div className="flex gap-2">
@@ -142,7 +142,7 @@ export function KnowledgePointEditDialog({
               )}
             </div>
             {isPreview ? (
-              <div className="max-h-60 min-h-24 overflow-y-auto rounded-lg border border-input bg-transparent px-2.5 py-2 prose prose-sm dark:prose-invert">
+              <div className="max-h-80 min-h-32 overflow-y-auto rounded-lg border border-input bg-transparent px-2.5 py-2 prose prose-sm dark:prose-invert">
                 <ReactMarkdown>{description}</ReactMarkdown>
               </div>
             ) : (
@@ -151,8 +151,8 @@ export function KnowledgePointEditDialog({
                 placeholder="Enter your note..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={6}
-                className="max-h-60 overflow-y-auto resize-y"
+                rows={8}
+                className="max-h-80 overflow-y-auto resize-y"
               />
             )}
           </div>
@@ -160,15 +160,15 @@ export function KnowledgePointEditDialog({
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
 
-        <DialogFooter>
+        <DrawerFooter className="flex-row justify-end gap-2">
           <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
             {isSubmitting ? 'Saving...' : 'Save'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   );
 }

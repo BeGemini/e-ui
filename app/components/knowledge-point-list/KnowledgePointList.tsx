@@ -13,6 +13,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { KNOWLEDGE_POINT_CATEGORIES } from '@/lib/types';
 import type { KnowledgePoint, KnowledgePointCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -171,17 +179,17 @@ export function KnowledgePointList({
         </Card>
       ))}
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingPoint} onOpenChange={() => setEditingPoint(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Knowledge Point</DialogTitle>
-            <DialogDescription>
+      {/* Edit Drawer */}
+      <Drawer open={!!editingPoint} onOpenChange={() => setEditingPoint(null)} swipeDirection="right">
+        <DrawerContent className="sm:max-w-md">
+          <DrawerHeader>
+            <DrawerTitle>Edit Knowledge Point</DrawerTitle>
+            <DrawerDescription>
               Update the category and note for &quot;{editingPoint?.capturedText}&quot;.
-            </DialogDescription>
-          </DialogHeader>
+            </DrawerDescription>
+          </DrawerHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 overflow-y-auto p-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Category</label>
               <div className="flex gap-2">
@@ -209,21 +217,22 @@ export function KnowledgePointList({
                 id="edit-description"
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
-                rows={4}
+                rows={8}
+                className="max-h-80 overflow-y-auto resize-y"
               />
             </div>
           </div>
 
-          <DialogFooter>
+          <DrawerFooter className="flex-row justify-end gap-2">
             <Button variant="outline" onClick={() => setEditingPoint(null)} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button onClick={handleSaveEdit} disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : 'Save'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deletingPoint} onOpenChange={() => setDeletingPoint(null)}>
