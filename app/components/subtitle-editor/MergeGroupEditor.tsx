@@ -9,12 +9,16 @@ interface MergeGroupEditorProps {
   mergeGroups: MergeGroup[];
   selectedForMerge: number[];
   onCreateFromSelected: (label: string) => void;
+  currentProgress?: number;
+  onDeleteGroup?: (startIndex: number) => void;
 }
 
 export function MergeGroupEditor({
   mergeGroups,
   selectedForMerge,
   onCreateFromSelected,
+  currentProgress = 0,
+  onDeleteGroup,
 }: MergeGroupEditorProps) {
   const [labelForSelected, setLabelForSelected] = useState('');
 
@@ -36,6 +40,40 @@ export function MergeGroupEditor({
         <p className="text-sm text-gray-500">
           Select two or more sentences above, then create a merge group.
         </p>
+      )}
+
+      {/* Existing groups */}
+      {mergeGroups.length > 0 && (
+        <div className="space-y-2">
+          {mergeGroups.map((group) => {
+            const isLocked = group.startIndex < currentProgress;
+            return (
+              <div
+                key={group.startIndex}
+                className="flex items-center justify-between rounded border border-gray-200 bg-gray-50 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <span className="text-sm font-medium text-gray-900">
+                    {group.label || `Group (sentences ${group.startIndex + 1}-${group.endIndex + 1})`}
+                  </span>
+                  <span className="ml-2 text-xs text-gray-500">
+                    sentences {group.startIndex + 1}-{group.endIndex + 1}
+                    {group.customText ? ' · custom text' : ''}
+                  </span>
+                </div>
+                {onDeleteGroup && !isLocked && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onDeleteGroup(group.startIndex)}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {/* Quick Create from Selected */}

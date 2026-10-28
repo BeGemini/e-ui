@@ -215,6 +215,12 @@ export default function SubtitleEditorPage() {
     handleAddGroup(newGroup);
   };
 
+  const handleDeleteGroup = (startIndex: number) => {
+    const nextGroups = mergeGroups.filter((g) => g.startIndex !== startIndex);
+    setMergeGroups(nextGroups);
+    recomputeEffectiveSubtitles(nextGroups, skippedSentences);
+  };
+
   const handleUnmerge = (effectiveIndex: number) => {
     const row = effectiveSubtitles.find((s) => s.index === effectiveIndex);
     if (!row || !row.isMerged) return;
@@ -268,7 +274,8 @@ export default function SubtitleEditorPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save configuration');
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || 'Failed to save configuration');
       }
 
       toast({
@@ -308,7 +315,8 @@ export default function SubtitleEditorPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to reset configuration');
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || 'Failed to reset configuration');
       }
 
       setMergeGroups([]);
@@ -393,6 +401,8 @@ export default function SubtitleEditorPage() {
           mergeGroups={mergeGroups}
           selectedForMerge={selectedForMerge}
           onCreateFromSelected={handleCreateFromSelected}
+          currentProgress={userProgress.currentSentenceIndex}
+          onDeleteGroup={handleDeleteGroup}
         />
 
         {/* Skip Sentence Editor */}

@@ -2,9 +2,8 @@
 -- MySQL 8.0+
 -- Created: 2026-09-09
 
--- Create database if not exists
-CREATE DATABASE IF NOT EXISTS english_listening_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE english_listening_db;
+-- The migration script connects to the database named in DATABASE_URL
+-- and creates it beforehand, so the schema below targets that connection.
 
 -- ===== CONTENT ENTITIES =====
 

@@ -7,8 +7,11 @@ import { downloadFile } from '@/lib/cos-client';
 import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
 import { applySubtitleConfig, SubtitleConfigInput } from '@/lib/utils';
 
-function safeParseJson<T>(value: string | null | undefined, fallback: T): T {
+function safeParseJson<T>(value: unknown, fallback: T): T {
   if (!value) return fallback;
+  // mysql2 returns JSON columns already parsed
+  if (Array.isArray(value)) return value as T;
+  if (typeof value !== 'string') return fallback;
   try {
     const parsed = JSON.parse(value);
     if (!Array.isArray(parsed)) return fallback;
@@ -109,20 +112,15 @@ export async function PUT(
     const body = await request.json();
     const { mergedGroups, skippedSentences } = body;
 
-    // Get user's progress to enforce read-only constraint
+    // Get user's progress to enforce read-only constraint.
+    // No progress row means the exercise hasn't been started,
+    // so nothing is read-only yet (currentProgress = 0).
     const progress = await queryOne<UserExerciseProgress>(
       'SELECT * FROM UserExerciseProgress WHERE userId = ? AND exerciseId = ?',
       [session.userId, exerciseId]
     );
 
-    if (!progress) {
-      return NextResponse.json(
-        { error: 'Progress not found. Please start the exercise first.' },
-        { status: 404 }
-      );
-    }
-
-    const currentProgress = progress.currentSentenceIndex;
+    const currentProgress = progress?.currentSentenceIndex ?? 0;
 
     // Load existing config so unchanged existing items can be re-saved
     // even if they overlap with already-completed sentences.

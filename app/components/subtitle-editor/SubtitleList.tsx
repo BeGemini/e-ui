@@ -199,6 +199,15 @@ export function SubtitleList({
                       {isSkipped ? 'Unskip' : 'Skip'}
                     </Button>
                   )}
+                  {subtitle.isMerged && !subtitle.isLocked && !isEditing && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => startEditing(subtitle)}
+                    >
+                      Edit
+                    </Button>
+                  )}
                   {subtitle.isMerged && !subtitle.isLocked && !isEditing && onUnmerge && (
                     <Button
                       variant="outline"

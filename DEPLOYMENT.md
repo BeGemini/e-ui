@@ -125,17 +125,25 @@ cd /opt/e-ui
 
 | 变量 | 说明 | 是否必填 |
 |------|------|---------|
-| `DATABASE_URL` | MySQL 连接串 | 是 |
-| `JWT_SECRET` | JWT 签名密钥，生产环境必须随机生成 | 是 |
-| `JWT_EXPIRY` | JWT 过期时间 | 是 |
-| `COS_REGION` | 腾讯云 COS 地域 | 是 |
-| `COS_BUCKET` | 腾讯云 COS Bucket | 是 |
-| `COS_SECRET_ID` | 腾讯云 COS SecretId | 是 |
-| `COS_SECRET_KEY` | 腾讯云 COS SecretKey | 是 |
-| `DEEPSEEK_API_KEY` | DeepSeek API Key | 是 |
-| `API_BASE_URL` | 外部可访问的域名或 IP | 是 |
-| `NODE_ENV` | 固定为 `production` | 是 |
-| `LOG_LEVEL` | 日志级别，`info` 或 `debug` | 否 |
+| `DATABASE_URL` | MySQL 连接串，格式为 `mysql://USER:PASSWORD@HOST:3306/DATABASE`；用户名和密码中的特殊字符需 URL 编码 | 是 |
+| `JWT_SECRET` | JWT 签名密钥，请填写独立随机密钥，不要使用代码中的开发默认值；可用 `openssl rand -hex 32` 生成 | 是 |
+| `JWT_EXPIRY` | JWT 过期时间，默认 `7d` | 否 |
+| `COS_REGION` | 腾讯云 COS 地域，必须与 Bucket 一致；代码默认 `ap-beijing` | 使用 COS 功能时需确认 |
+| `COS_BUCKET` | 腾讯云 COS 完整 Bucket 名称，包含 APPID 后缀 | 使用 COS 功能时必填 |
+| `COS_SECRET_ID` | 腾讯云 COS SecretId | 使用 COS 功能时必填 |
+| `COS_SECRET_KEY` | 腾讯云 COS SecretKey | 使用 COS 功能时必填 |
+| `DEEPSEEK_API_KEY` | DeepSeek API Key | 使用 AI 知识点讲解时必填 |
+| `DEEPSEEK_MODEL` | DeepSeek 模型，代码默认 `deepseek-flash`，可按账号可用模型修改 | 否 |
+| `TEST_BASE_URL` | 集成测试目标地址，默认 `http://localhost:3000` | 否，仅测试使用 |
+| `PORT` | Next.js 服务端口，默认 `3000`；需通过启动命令或 PM2 配置设置 | 否 |
+| `NODE_ENV` | Next.js / Jest 自动设置；现有 PM2 配置设为 `production`，不建议在本地环境文件中固定 | 否 |
+| `CI` | 测试配置读取的 CI 标记，由 CI 平台设置，本地无需填写 | 否 |
+
+`API_BASE_URL` 和 `LOG_LEVEL` 虽然出现在历史文档和类型声明中，但当前应用代码没有读取，不需要配置。当前没有需要填写的 `NEXT_PUBLIC_*` 变量，请勿将服务端密钥添加该前缀。
+
+填写 `.env.local` 后请重启应用。数据库脚本使用简易环境文件解析器，建议值不加引号、注释放在独立行。Next.js 会展开值中的 `$`，密钥建议使用上述命令生成的十六进制字符串，数据库密码中的特殊字符请先 URL 编码。
+
+注意：Next.js 启动 HTTP 服务前不会加载 `.env.local` 中的 `PORT`。本地修改端口请使用 `npm run dev -- --port 3001`；生产环境请同步修改 `ecosystem.config.js` 中的 `env.PORT`。部署脚本只读取 `.env.local` 中的 `PORT` 用于健康检查，如需自定义端口，两处必须一致。
 
 ## 配置 Nginx 反向代理（推荐）
 

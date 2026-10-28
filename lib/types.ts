@@ -79,6 +79,8 @@ export interface UserExerciseProgress {
   exerciseId: string;
   currentSentenceIndex: number;
   isCompleted: boolean;
+  overallAccuracy?: number | null;
+  completedDate?: Date | null;
   lastAttemptDate?: Date;
   createdDate: Date;
   updatedDate: Date;

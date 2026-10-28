@@ -154,9 +154,13 @@ async function calculateOverallAccuracy(
       [userId, exerciseId]
     );
 
-    const skippedSentences = config?.skippedSentences
-      ? JSON.parse(config.skippedSentences)
-      : [];
+    // mysql2 returns JSON columns already parsed; handle both shapes
+    const rawSkipped = config?.skippedSentences as unknown;
+    const skippedSentences: number[] = Array.isArray(rawSkipped)
+      ? rawSkipped
+      : typeof rawSkipped === 'string'
+        ? JSON.parse(rawSkipped)
+        : [];
 
     // Calculate average accuracy, excluding skipped sentences
     let totalAccuracy = 0;

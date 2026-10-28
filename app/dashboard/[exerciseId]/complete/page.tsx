@@ -42,24 +42,46 @@ export default function ExerciseCompletionPage() {
       try {
         setIsLoading(true);
 
+        const token = localStorage.getItem('token');
+        if (!token) {
+          router.push('/');
+          return;
+        }
+        const authHeaders = { Authorization: `Bearer ${token}` };
+
         // Get latest progress
-        const progressRes = await fetch(`/api/exercises/${exerciseId}/progress`);
+        const progressRes = await fetch(`/api/exercises/${exerciseId}/progress`, {
+          headers: authHeaders,
+        });
         if (!progressRes.ok) throw new Error('Failed to load progress data');
         const progressData = await progressRes.json();
+        const progress = progressData.progress ?? {};
 
         // Get exercise metadata
-        const exerciseRes = await fetch(`/api/exercises/${exerciseId}`);
+        const exerciseRes = await fetch(`/api/exercises/${exerciseId}`, {
+          headers: authHeaders,
+        });
         if (!exerciseRes.ok) throw new Error('Failed to load exercise data');
         const exerciseData = await exerciseRes.json();
+        const exercise = exerciseData.exercise ?? {};
+        const totalSentences = exercise.totalSentences ?? 0;
 
         setCompletionData({
           exerciseId,
-          exerciseTitle: exerciseData.title,
-          overallAccuracy: progressData.overallAccuracy || 0,
-          completionDate: progressData.completedDate || new Date().toISOString(),
-          totalSentences: exerciseData.sentenceCount,
-          timeSpent: progressData.totalTimeSpent || 0,
-          attempts: progressData.attempts || [],
+          exerciseTitle: exercise.title ?? '',
+          overallAccuracy: Number(progress.overallAccuracy) || 0,
+          completionDate: progress.completedDate || new Date().toISOString(),
+          totalSentences,
+          timeSpent: progress.totalTimeSpent || 0,
+          // API returns per-sentence attempts; adapt them to the summary shape
+          attempts: (progressData.attempts || []).map((attempt: any) => ({
+            attemptId: attempt.attemptId,
+            timestamp: attempt.attemptDate,
+            accuracy: Number(attempt.accuracy) || 0,
+            completedSentences: (attempt.sentenceIndex ?? 0) + 1,
+            totalSentences,
+            duration: 0,
+          })),
         });
       } catch (error) {
         toast({

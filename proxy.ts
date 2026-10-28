@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // Define protected routes
 const protectedRoutes = ['/api/exercises', '/api/auth/me', '/api/practice', '/api/subtitles'];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Check if the requested path is protected
   const isProtectedRoute = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route));
 

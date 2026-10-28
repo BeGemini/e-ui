@@ -2,7 +2,7 @@
 -- MySQL 8.0+
 -- Created: 2026-09-13
 
-USE english_listening_db;
+-- The migration script connects to the database named in DATABASE_URL.
 
 -- KnowledgePoint (知识点 - Learning Note)
 CREATE TABLE IF NOT EXISTS KnowledgePoint (
