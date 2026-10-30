@@ -1,9 +1,13 @@
 <!-- 
-SYNC IMPACT REPORT (v1.1.0)
-- Version: 1.0.0 → 1.1.0 (MINOR: Added Avoid Over-Engineering principle)
-- New principles: Avoid Over-Engineering (不要 overwork)
-- Sections updated: Core Principles, Governance
-- Templates requiring updates: plan-template.md, spec-template.md, tasks-template.md (pending review)
+SYNC IMPACT REPORT (v2.0.0)
+- Version: 1.1.0 → 2.0.0 (MAJOR: Principle IV redefined from Mobile-First to Desktop-Only)
+- Modified principles: IV. Responsive & Accessible Design (Mobile-First) → IV. Desktop Web & Accessible Design
+- Rationale: The app is desktop-only; mobile/small-screen support is explicitly out of scope.
+- Sections updated: Core Principles
+- Dependent docs updated: specs/001–005 plan/spec/tasks references to mobile-first/320px
+- Templates: generic spec-kit examples (mobile-app, Mobile + API) left as-is; they are illustrative, not requirements
+
+Previous (v1.1.0): Added Avoid Over-Engineering principle (MINOR)
 -->
 
 # e-ui Constitution
@@ -31,12 +35,15 @@ explicitly approved by constitution amendment. Database access, business logic, 
 authentication flows MUST be contained within the Next.js application. Rationale: 
 Simplified deployment, reduced operational complexity, single runtime environment.
 
-### IV. Responsive & Accessible Design (Mobile-First)
-All interfaces MUST follow mobile-first design principles using Tailwind CSS. Components 
-MUST be responsive and function correctly on devices from 320px width upward. Accessibility 
+### IV. Desktop Web & Accessible Design
+The application targets desktop browsers only. Layouts MUST be designed and verified for 
+desktop viewports (1280px width and up) using Tailwind CSS. Mobile and small-screen support 
+is out of scope: do NOT add mobile-specific layouts or breakpoints, and do NOT spend effort 
+testing narrow viewports unless a spec explicitly requests it. Accessibility 
 (a11y) MUST be verified: ARIA labels, semantic HTML structure via shadcn components, keyboard 
-navigation support, color contrast compliance (WCAG 2.1 AA minimum). Rationale: User inclusivity, 
-broader audience reach, compliance with accessibility standards.
+navigation support, color contrast compliance (WCAG 2.1 AA minimum). Rationale: The product is 
+used on desktop computers only; focusing on one form factor avoids wasted effort, while 
+accessibility keeps the app usable for everyone on that platform.
 
 ### V. Code Quality & Testing Discipline
 Production code MUST be maintained with clear documentation, readable structure, and consistent 
@@ -100,4 +107,4 @@ This constitution supersedes all conflicting practices and guidelines.
 - **Runtime Guidance**: See README.md and app/layout.tsx for ongoing development standards
 - **Exceptions**: Non-compliant code requires exception documentation linking to a constitution amendment proposal
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-09 | **Last Amended**: 2026-09-15
+**Version**: 2.0.0 | **Ratified**: 2026-09-09 | **Last Amended**: 2026-10-28

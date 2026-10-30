@@ -143,7 +143,8 @@ export async function GET(
       userConfig: userConfig || null,
       userProgress: userProgress ? {
         currentSentenceIndex: userProgress.currentSentenceIndex,
-        isCompleted: userProgress.isCompleted,
+        // DB stores 0/1; coerce so `{isCompleted && ...}` never renders "0"
+        isCompleted: Boolean(userProgress.isCompleted),
       } : {
         currentSentenceIndex: 0,
         isCompleted: false,

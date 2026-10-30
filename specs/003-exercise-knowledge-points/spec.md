@@ -22,7 +22,7 @@ During dictation practice, after checking an answer, the learner reviews the Cor
 
 1. **Given** a learner has submitted a dictation answer and the feedback area shows Correct Text, **When** the learner selects a contiguous portion of text, **Then** a floating action menu appears near the selection and offers an action to create a knowledge point
 2. **Given** the learner has selected text and opened the create action from the floating menu, **When** they choose a category (word, phrase, or sentence) and enter a description, **Then** the knowledge point is saved and linked to the current exercise and user
-3. **Given** the learner uses a touch device without a traditional context menu, **When** they select text, **Then** the same floating action menu appears and the create action remains available
+3. *(Removed 2026-10-28 — touch devices are out of scope; the app is desktop-only per Constitution IV v2.0.0)*
 4. **Given** the learner saves a knowledge point, **When** the feedback area remains visible, **Then** the selected text is highlighted with the color associated with the chosen category
 5. **Given** the learner returns to the same exercise later, **When** the same Correct Text is shown, **Then** previously saved knowledge points remain highlighted with their category colors
 6. **Given** the learner attempts to save a knowledge point with an empty description, **When** they submit, **Then** the system prevents saving and prompts for a description
@@ -86,7 +86,7 @@ When the Correct Text is displayed during practice, any portion of the text that
 - What happens when the learner attempts to save the exact same text as a knowledge point twice for the same exercise? (Resolved by FR-013: duplicate is ignored and existing description may be shown)
 - How does the system handle text selection that starts or ends inside a word? (Resolved by FR-001: selection is normalized to whole word boundaries)
 - What happens if a knowledge point text no longer exists in the Correct Text after an admin edits subtitles? (Resolved by FR-007: the knowledge point is preserved in the list page but no longer highlighted in the Correct Text)
-- How does the system handle right-click actions on touch devices without a traditional context menu? (Resolved by FR-002: floating action menu on all devices)
+- ~~How does the system handle right-click actions on touch devices?~~ Out of scope: the app is desktop-only (Constitution IV v2.0.0).
 - What happens when a learner creates many knowledge points for a single exercise?
 - How does the system handle punctuation when matching saved knowledge point text to Correct Text?
 - What happens if the learner refreshes the practice page before the knowledge point save completes?
@@ -95,7 +95,7 @@ When the Correct Text is displayed during practice, any portion of the text that
 
 ### Session 2026-09-13
 
-- **Q**: On touch devices without a right-click, how does the learner create a knowledge point? → **A**: All devices show a floating action menu when text is selected; the original right-click requirement is replaced by this menu. The design target is PC-first, with touch support secondary.
+- **Q**: On touch devices without a right-click, how does the learner create a knowledge point? → **A**: All devices show a floating action menu when text is selected; the original right-click requirement is replaced by this menu. The design target is PC-first, with touch support secondary. *(Superseded 2026-10-28: the app is desktop-only; touch support is out of scope. The floating menu remains the desktop interaction.)*
 - **Q**: What happens when the learner attempts to save the exact same text as a knowledge point twice for the same exercise? → **A**: The duplicate save is ignored; the existing knowledge point is preserved and its description may be surfaced.
 - **Q**: How does the system handle text selection that starts or ends inside a word? → **A**: The selection is normalized to the nearest whole word boundaries before the knowledge point is created.
 - **Q**: What happens if a knowledge point's captured text no longer exists in the Correct Text after subtitle edits? → **A**: The knowledge point remains in the list page but is no longer highlighted in the Correct Text.
@@ -139,7 +139,7 @@ When the Correct Text is displayed during practice, any portion of the text that
 
 ## Assumptions
 
-- The primary design target is desktop (PC-first); touch device support is required but secondary
+- The design target is desktop only; touch devices are out of scope
 - Knowledge points are private to each learner and are not shared across users
 - A knowledge point created from a sentence remains preserved even if the source subtitle text changes; it simply stops being highlighted when the captured text no longer matches the current Correct Text
 - The text of a knowledge point is an exact substring of the current subtitle sentence shown in the feedback area, after normalization to whole word boundaries

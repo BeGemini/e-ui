@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Define protected routes
-const protectedRoutes = ['/api/exercises', '/api/auth/me', '/api/practice', '/api/subtitles'];
+const protectedRoutes = ['/api/exercises', '/api/auth/me', '/api/practice', '/api/subtitles', '/api/admin'];
 
 export function proxy(request: NextRequest) {
   // Check if the requested path is protected
@@ -35,5 +35,6 @@ export const config = {
     '/api/auth/me',
     '/api/practice/:path*',
     '/api/subtitles/:path*',
+    '/api/admin/:path*',
   ],
 };

@@ -42,7 +42,7 @@ Full-stack Next.js application for English listening dictation practice with vid
 - No custom HTML tags; shadcn components only (Constitution I)
 - TypeScript strict mode required (Constitution II)
 - No separate backend microservices (Constitution III)
-- Mobile-first responsive (320px+, Constitution IV)
+- Desktop-only web UI (Constitution IV)
 - WCAG 2.1 AA accessibility minimum (Constitution IV)
 
 **Scale/Scope**: 
@@ -59,7 +59,7 @@ Full-stack Next.js application for English listening dictation practice with vid
 - ✅ **Principle I (UI Component Library)**: All user-facing UI will use shadcn components exclusively (no custom HTML)
 - ✅ **Principle II (Type Safety)**: TypeScript strict mode enforced; all API routes, data structures, component props typed
 - ✅ **Principle III (Full-Stack Integration)**: Backend implemented in Next.js API routes (app/api/*); no separate microservices
-- ✅ **Principle IV (Responsive & Accessible)**: Mobile-first design (320px+) via Tailwind CSS; WCAG 2.1 AA compliance
+- ✅ **Principle IV (Desktop Web & Accessible)**: Desktop layout via Tailwind CSS; WCAG 2.1 AA compliance
 - ✅ **Principle V (Code Quality)**: ESLint validation required; unit tests for critical logic recommended
 
 **Gate Status**: ✅ **PASS** - All principles satisfied by design
@@ -471,7 +471,7 @@ Expected: Array of Series with Seasons and Episodes
 - ✅ **Principle I**: All UI components will use shadcn (Button, Card, Form, etc.)
 - ✅ **Principle II**: All API routes have full TypeScript types; no `any` types
 - ✅ **Principle III**: All backend logic in Next.js API routes; no separate backend
-- ✅ **Principle IV**: Mobile-first Tailwind design; WCAG 2.1 AA compliance
+- ✅ **Principle IV**: Desktop Tailwind design; WCAG 2.1 AA compliance
 - ✅ **Principle V**: ESLint rules enforced; unit tests for accuracy algorithm
 
 **Gate Status**: ✅ **PASS** - No violations; design ready for Phase 2 implementation

@@ -418,3 +418,127 @@ export const KNOWLEDGE_POINT_CATEGORY_MAP: Record<KnowledgePointCategory, Knowle
   phrase: KNOWLEDGE_POINT_CATEGORIES[1],
   sentence: KNOWLEDGE_POINT_CATEGORIES[2],
 };
+
+// ===== ADMIN CONTENT MANAGEMENT =====
+
+export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
+
+export type ProbeErrorCode =
+  | 'INVALID_KEY'
+  | 'FOREIGN_HOST'
+  | 'UNSUPPORTED_EXTENSION'
+  | 'NOT_FOUND'
+  | 'TIMEOUT'
+  | 'FETCH_FAILED'
+  | 'NOT_ISO_BMFF'
+  | 'DURATION_UNREADABLE'
+  | 'NOT_UTF8'
+  | 'PARSE_FAILED'
+  | 'EMPTY_SUBTITLE'
+  | 'SUBTITLE_EXCEEDS_VIDEO';
+
+export interface ProbeIssue {
+  code: ProbeErrorCode;
+  message: string;
+}
+
+export interface VideoProbe {
+  key: string;
+  ok: boolean;
+  durationSeconds?: number;
+  error?: ProbeIssue;
+}
+
+export interface SubtitleProbe {
+  key: string;
+  ok: boolean;
+  subtitleFormat?: Exercise['subtitleFormat'];
+  totalSentences?: number;
+  lastCueEndSeconds?: number;
+  error?: ProbeIssue;
+}
+
+export interface ExerciseProbeResult {
+  ok: boolean;
+  video: VideoProbe;
+  subtitle: SubtitleProbe;
+  warnings: ProbeIssue[];
+}
+
+export interface AdminExerciseNode {
+  exerciseId: string;
+  title: string;
+  subtitleFormat: Exercise['subtitleFormat'];
+  totalSentences: number;
+  durationSeconds: number;
+}
+
+export interface AdminEpisodeNode {
+  episodeId: string;
+  episodeNumber: number;
+  title: string;
+  totalExercises: number;
+  exercises: AdminExerciseNode[];
+}
+
+export interface AdminSeasonNode {
+  seasonId: string;
+  seasonNumber: number;
+  totalEpisodes: number;
+  episodes: AdminEpisodeNode[];
+}
+
+export interface AdminSeriesNode {
+  seriesId: string;
+  title: string;
+  difficulty: Difficulty;
+  totalEpisodes: number;
+  seasons: AdminSeasonNode[];
+}
+
+export interface AdminContentTree {
+  series: AdminSeriesNode[];
+}
+
+export interface AdminSeriesCreateRequest {
+  title: string;
+  difficulty: Difficulty;
+  description?: string;
+  genre?: string;
+  coverImageUrl?: string;
+}
+
+export interface AdminSeasonCreateRequest {
+  seriesId: string;
+  seasonNumber: number;
+  description?: string;
+}
+
+export interface AdminEpisodeCreateRequest {
+  seasonId: string;
+  episodeNumber: number;
+  title: string;
+  description?: string;
+}
+
+export interface AdminExerciseProbeRequest {
+  videoUrl: string;
+  subtitleUrl: string;
+}
+
+export interface AdminExerciseCreateRequest extends AdminExerciseProbeRequest {
+  episodeId: string;
+  title: string;
+  difficulty?: Difficulty | null;
+}
+
+export interface AdminErrorResponse {
+  error: string;
+  field?: string;
+  fieldErrors?: Record<string, string[]>;
+}
+
+export interface AdminExerciseCreateResponse {
+  exerciseId: string;
+  probe: ExerciseProbeResult;
+}

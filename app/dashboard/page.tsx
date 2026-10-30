@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import ExerciseList from '@/app/components/exercise-list/ExerciseList';
 
@@ -87,13 +88,20 @@ export default function DashboardPage() {
                 </p>
               )}
             </div>
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              className="border-gray-300 hover:bg-gray-100"
-            >
-              Logout
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {user?.role === 'admin' && (
+                <Button variant="outline" render={<Link href="/admin" />} nativeButton={false}>
+                  Content management
+                </Button>
+              )}
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                className="border-gray-300 hover:bg-gray-100"
+              >
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </header>

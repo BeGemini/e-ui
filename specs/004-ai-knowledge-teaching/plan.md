@@ -18,7 +18,7 @@ Add an optional "AI教学" button to the existing knowledge point creation dialo
 
 **Testing**: Jest (unit/integration), Playwright (e2e), ESLint, `tsc --noEmit`
 
-**Target Platform**: Web browsers (mobile-first responsive design, 320px+)
+**Target Platform**: Desktop web browsers
 
 **Project Type**: Full-stack Next.js web application
 
@@ -37,7 +37,7 @@ Add an optional "AI教学" button to the existing knowledge point creation dialo
 | I. UI Component Library (shadcn-First) | ✅ Pass | New button, loader, and toast use existing shadcn/ui components |
 | II. Type Safety (Mandatory TypeScript) | ✅ Pass | New request/response types added to `lib/types.ts`; strict mode enabled |
 | III. Full-Stack Integration (Next.js Only) | ✅ Pass | AI call is wrapped in `app/api/ai/knowledge-point-teach/route.ts` |
-| IV. Responsive & Accessible Design | ✅ Pass | Dialog is already responsive; no new layout breakpoints needed |
+| IV. Desktop Web & Accessible Design | ✅ Pass | Desktop-only; reuses the existing dialog layout |
 | V. Code Quality & Testing Discipline | ✅ Pass | Lint and type-check required; integration test for API route recommended |
 
 No constitution violations identified.

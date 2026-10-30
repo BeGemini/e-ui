@@ -18,7 +18,7 @@ Add a per-user knowledge-point feature that lets learners capture words, phrases
 
 **Testing**: Jest + React Testing Library for unit/integration, Playwright for E2E, `tsc --noEmit` for type checking, ESLint for linting
 
-**Target Platform**: Desktop-first web app (PC-first), with touch device compatibility
+**Target Platform**: Desktop web browsers
 
 **Project Type**: full-stack web application
 
@@ -37,7 +37,7 @@ Add a per-user knowledge-point feature that lets learners capture words, phrases
 | I. shadcn-first UI | Pass | New dashboard indicator, floating menu, dialog, and list page will use shadcn/ui components (`Badge`, `Button`, `Card`, `Dialog`, `Input`, `Table`) |
 | II. TypeScript strict | Pass | `tsconfig.json` has `strict: true`; all new API payloads and component props will be typed in `lib/types.ts` |
 | III. Next.js full-stack | Pass | New endpoints will be added under `app/api/*`; database access remains in `lib/db.ts` and API routes |
-| IV. Responsive & accessible | Pass | PC-first layout using Tailwind; touch-friendly text selection and floating menu |
+| IV. Desktop web & accessible | Pass | Desktop layout using Tailwind; mouse-driven text selection and floating menu |
 | V. Quality & testing | Pass | Integration tests for API routes and unit tests for text normalization/highlighting logic recommended |
 
 **Re-check after Phase 1**: No constitution violations introduced by the design.

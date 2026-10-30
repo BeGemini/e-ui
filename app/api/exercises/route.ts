@@ -104,7 +104,9 @@ export async function GET(request: NextRequest) {
 
             const exerciseData: ExerciseInHierarchy = {
               ...exercise,
-              completed: progress?.isCompleted ?? false,
+              // isCompleted is stored as 0/1 in the DB; coerce to boolean so
+              // `{completed && ...}` never renders a literal "0" on the client
+              completed: Boolean(progress?.isCompleted),
               currentProgress: progress?.currentSentenceIndex ?? 0,
               knowledgePointCount: knowledgePointCountResult?.count ?? 0,
             };

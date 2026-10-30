@@ -95,3 +95,69 @@ export async function validate<T>(schema: z.ZodSchema, data: unknown): Promise<T
   }
   return result.data as T;
 }
+
+/**
+ * Admin Content Management Schemas
+ */
+const DifficultySchema = z.enum(['beginner', 'intermediate', 'advanced'], { message: 'Select a difficulty' });
+
+const optionalText = (max: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, `${label} must be at most ${max} characters`)
+    .optional()
+    .transform((v) => (v ? v : undefined));
+
+const positiveInt = (label: string) =>
+  z.coerce
+    .number({ message: `${label} must be a number` })
+    .int(`${label} must be a positive integer`)
+    .positive(`${label} must be a positive integer`);
+
+const requiredText = (max: number, label: string) =>
+  z
+    .string({ message: `${label} is required` })
+    .trim()
+    .min(1, `${label} is required`)
+    .max(max, `${label} must be at most ${max} characters`);
+
+const parentId = (label: string) => z.string({ message: `Select a ${label}` }).uuid(`Select a ${label}`);
+
+export const AdminSeriesCreateSchema = z.object({
+  title: requiredText(255, 'Title'),
+  difficulty: DifficultySchema,
+  description: optionalText(5000, 'Description'),
+  genre: optionalText(100, 'Genre'),
+  coverImageUrl: z
+    .string()
+    .trim()
+    .max(500, 'Cover image URL must be at most 500 characters')
+    .optional()
+    .transform((v) => (v ? v : undefined))
+    .refine((v) => v === undefined || /^https?:\/\/\S+$/i.test(v), 'Cover image URL must be an http(s) link'),
+});
+
+export const AdminSeasonCreateSchema = z.object({
+  seriesId: parentId('series'),
+  seasonNumber: positiveInt('Season number'),
+  description: optionalText(5000, 'Description'),
+});
+
+export const AdminEpisodeCreateSchema = z.object({
+  seasonId: parentId('season'),
+  episodeNumber: positiveInt('Episode number'),
+  title: requiredText(255, 'Title'),
+  description: optionalText(5000, 'Description'),
+});
+
+export const AdminExerciseProbeSchema = z.object({
+  videoUrl: requiredText(500, 'Video'),
+  subtitleUrl: requiredText(500, 'Subtitle'),
+});
+
+export const AdminExerciseCreateSchema = AdminExerciseProbeSchema.extend({
+  episodeId: parentId('episode'),
+  title: requiredText(255, 'Title'),
+  difficulty: DifficultySchema.nullish(),
+});

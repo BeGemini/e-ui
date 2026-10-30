@@ -20,14 +20,14 @@ This feature optimizes the existing subtitle customization workflow by fixing th
 
 **Testing**: Jest + React Testing Library for unit/integration tests; Playwright for E2E tests
 
-**Target Platform**: Responsive web application (desktop and mobile browsers)
+**Target Platform**: Desktop web browsers
 
 **Project Type**: Full-stack Next.js web application
 
 **Performance Goals**: Subtitle list renders without perceptible delay; config save applies on next playback
 
 **Constraints**:
-- Must follow e-ui Constitution: shadcn-first UI, strict TypeScript, Next.js API routes only, mobile-first responsive design.
+- Must follow e-ui Constitution: shadcn-first UI, strict TypeScript, Next.js API routes only, desktop-only web design.
 - No new backend microservices.
 - No `any` types without documented justification.
 
@@ -42,7 +42,7 @@ This feature optimizes the existing subtitle customization workflow by fixing th
 | I. UI Component Library (shadcn-First) | ✅ Pass | Existing components use shadcn; new inline editor will use shadcn `Input`, `Button`, `Dialog`. |
 | II. Type Safety (Mandatory TypeScript) | ✅ Pass | `MergeGroup` type extended with optional `customText`; schemas updated in `lib/validation.ts`. |
 | III. Full-Stack Integration (Next.js Only) | ✅ Pass | All changes confined to `app/api/*`, `app/components/*`, `lib/*`. |
-| IV. Responsive & Accessible Design | ✅ Pass | Existing Tailwind classes preserved; new editor controls follow mobile-first patterns. |
+| IV. Desktop Web & Accessible Design | ✅ Pass | Existing Tailwind classes preserved; new editor controls designed for desktop. |
 | V. Code Quality & Testing Discipline | ✅ Pass | Unit tests added for parser normalization and config transformation; lint/type-check enforced. |
 
 No constitution violations identified.
@@ -136,5 +136,5 @@ No complexity tracking required — no constitution violations.
 | I. shadcn-First | ✅ Pass | New editor controls use shadcn. |
 | II. Type Safety | ✅ Pass | Types extended; no `any` introduced. |
 | III. Next.js Integration | ✅ Pass | Logic remains in Next.js routes. |
-| IV. Responsive Design | ✅ Pass | No layout changes that break mobile. |
+| IV. Desktop Web Design | ✅ Pass | No layout changes that break the desktop layout. |
 | V. Code Quality | ✅ Pass | Tests and linting required. |
