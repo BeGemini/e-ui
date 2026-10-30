@@ -4,6 +4,16 @@ import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardR
 import { Play, Pause, RotateCcw, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+export const PLAYBACK_RATES = [0.25, 0.5, 1, 1.25, 1.5] as const;
+export type PlaybackRate = (typeof PLAYBACK_RATES)[number];
+const DEFAULT_PLAYBACK_RATE: PlaybackRate = 1;
+const PLAYBACK_RATE_ITEMS = PLAYBACK_RATES.map((r) => ({ value: r, label: `${r}x` }));
+
+function isPlaybackRate(v: unknown): v is PlaybackRate {
+  return PLAYBACK_RATES.includes(v as PlaybackRate);
+}
 
 interface VideoPlayerProps {
   videoUrl: string;
@@ -43,6 +53,16 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
   const [duration, setDuration] = useState(0);
   const [videoUrlWithToken, setVideoUrlWithToken] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState<PlaybackRate>(DEFAULT_PLAYBACK_RATE);
+
+  // Set defaultPlaybackRate too, since the media load algorithm resets
+  // playbackRate to it when the source changes.
+  const applyPlaybackRate = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.defaultPlaybackRate = playbackRate;
+    video.playbackRate = playbackRate;
+  }, [playbackRate]);
 
   // Expose imperative playback control so the parent can trigger playback
   // when the user advances to the next sentence.
@@ -81,6 +101,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
       setVideoUrlWithToken(videoUrl);
     }
   }, [videoUrl]);
+
+  // Re-run when the <video> element first mounts (videoUrlWithToken becomes non-empty).
+  useEffect(() => {
+    applyPlaybackRate();
+  }, [applyPlaybackRate, videoUrlWithToken]);
 
   // Get current subtitle (API already filters skipped ones)
   const currentSubtitle = currentSentenceIndex < subtitles.length ? subtitles[currentSentenceIndex] : null;
@@ -151,10 +176,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
     const video = videoRef.current;
     if (!video) return;
 
+    applyPlaybackRate();
     setDuration(video.duration);
     setIsReady(true);
     applyPendingSeek();
-  }, [applyPendingSeek]);
+  }, [applyPendingSeek, applyPlaybackRate]);
 
   const handleCanPlay = useCallback(() => {
     const video = videoRef.current;
@@ -349,6 +375,29 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
         >
           <SkipForward size={16} />
         </Button>
+        <Select
+          items={PLAYBACK_RATE_ITEMS}
+          value={playbackRate}
+          onValueChange={(v) => {
+            if (isPlaybackRate(v)) setPlaybackRate(v);
+          }}
+        >
+          <SelectTrigger
+            size="sm"
+            className="bg-transparent border-0 text-gray-300 hover:bg-gray-700 hover:text-white rounded"
+            aria-label="Playback speed"
+            title="Playback speed"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PLAYBACK_RATE_ITEMS.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );
