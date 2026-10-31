@@ -151,7 +151,8 @@ export default function PracticePage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to check accuracy');
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.error || 'Failed to check accuracy');
       }
 
       const feedback: CheckResponse = await response.json();
@@ -206,6 +207,19 @@ export default function PracticePage() {
         videoPlayerRef.current?.playSentenceAtIndex(nextIndex);
       }, 0);
     }
+  };
+
+  const handlePreviousSentence = () => {
+    if (currentSentenceIndex <= 0 || isSavingProgress || isCheckingAccuracy) return;
+
+    // Client-only navigation: intentionally does NOT call saveProgress (FR-007).
+    const prev = currentSentenceIndex - 1;
+    setCurrentSentenceIndex(prev);
+    setUserInput('');
+    setCurrentFeedback(null);
+    setTimeout(() => {
+      videoPlayerRef.current?.playSentenceAtIndex(prev);
+    }, 0);
   };
 
   const saveProgress = async (sentenceIndex: number, accuracy: number) => {
@@ -334,6 +348,8 @@ export default function PracticePage() {
                 currentSentenceIndex={currentSentenceIndex}
                 totalSentences={totalSentences}
                 onSentenceEnd={handleSentenceEnd}
+                onPreviousSentence={handlePreviousSentence}
+                isPreviousDisabled={isSavingProgress || isCheckingAccuracy}
               />
             </div>
 

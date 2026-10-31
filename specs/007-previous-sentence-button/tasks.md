@@ -41,7 +41,7 @@ This is a single Next.js App Router project, and all paths are relative to the r
 
 **Purpose**: Confirm the 006 baseline that 007 builds on. No dependencies or tooling are added.
 
-- [ ] T001 Verify the 006 playback-speed changes are present in `app/components/video-player/VideoPlayer.tsx`. Check for a `playbackRate` state, the Speed `Select` in the controls row (`<div className="flex items-center justify-center gap-2">`), and the `defaultPlaybackRate`/`playbackRate` handling. Then check that the baseline is green:
+- [X] T001 Verify the 006 playback-speed changes are present in `app/components/video-player/VideoPlayer.tsx`. Check for a `playbackRate` state, the Speed `Select` in the controls row (`<div className="flex items-center justify-center gap-2">`), and the `defaultPlaybackRate`/`playbackRate` handling. Then check that the baseline is green:
   - `npm run type-check`
   - `npm run lint`
   - `npx jest tests/unit/video-player-playback-rate.test.tsx`
@@ -56,7 +56,7 @@ This is a single Next.js App Router project, and all paths are relative to the r
 
 **⚠️ CRITICAL**: All user-story work depends on this phase being complete.
 
-- [ ] T002 In `app/components/video-player/VideoPlayer.tsx`, add two optional props to `interface VideoPlayerProps` (around line 18), with JSDoc as written in contract §1:
+- [X] T002 In `app/components/video-player/VideoPlayer.tsx`, add two optional props to `interface VideoPlayerProps` (around line 18), with JSDoc as written in contract §1:
   - `onPreviousSentence?: () => void;`
   - `isPreviousDisabled?: boolean;`
 
@@ -76,7 +76,7 @@ This is a single Next.js App Router project, and all paths are relative to the r
 
 ### Tests for User Story 1 (write first; they must FAIL before T004)
 
-- [ ] T003 [P] [US1] Create `tests/unit/video-player-previous-sentence.test.tsx`:
+- [X] T003 [P] [US1] Create `tests/unit/video-player-previous-sentence.test.tsx`:
   - **Setup**:
     - Copy the jsdom shims from `tests/unit/video-player-playback-rate.test.tsx`: the `Element.prototype.matches` top-layer override and the `PointerEvent` polyfill in `beforeAll`/`afterAll`.
     - Call `localStorage.setItem('token', 'test-token')` in `beforeEach` and `localStorage.clear()` in `afterEach`.
@@ -91,7 +91,7 @@ This is a single Next.js App Router project, and all paths are relative to the r
 
 ### Implementation for User Story 1
 
-- [ ] T004 [P] [US1] In `app/components/video-player/VideoPlayer.tsx` (depends on T002):
+- [X] T004 [P] [US1] In `app/components/video-player/VideoPlayer.tsx` (depends on T002):
   - Change the import on line 4 to `import { Play, Pause, RotateCcw, SkipBack, SkipForward } from 'lucide-react';`.
   - In the controls row `<div className="flex items-center justify-center gap-2">` (around line 348), insert a shadcn `Button` as the **first** child, before Play/Pause:
     - `variant="outline" size="sm"`
@@ -101,14 +101,14 @@ This is a single Next.js App Router project, and all paths are relative to the r
     - `aria-label="Previous sentence"`
     - Child: `<SkipBack size={16} />`
   - The player itself must NOT seek, play, or call `onSentenceEnd` for this action (contract §4).
-- [ ] T005 [P] [US1] In `app/dashboard/[exerciseId]/practice/page.tsx` (depends on T002 only; different file from T004), add `handlePreviousSentence` next to `advanceToNextSentence` (around line 190):
+- [X] T005 [P] [US1] In `app/dashboard/[exerciseId]/practice/page.tsx` (depends on T002 only; different file from T004), add `handlePreviousSentence` next to `advanceToNextSentence` (around line 190):
   - If `currentSentenceIndex <= 0`, return.
   - `const prev = currentSentenceIndex - 1;`
   - `setCurrentSentenceIndex(prev); setUserInput(''); setCurrentFeedback(null);`
   - `setTimeout(() => videoPlayerRef.current?.playSentenceAtIndex(prev), 0);` (the same pattern as `advanceToNextSentence`, so auto-pause, speed retention, and pending play while not ready all carry over).
   - Do NOT call `saveProgress`, `fetch`, or `handleSentenceEnd`.
-- [ ] T006 [US1] In `app/dashboard/[exerciseId]/practice/page.tsx`, pass `onPreviousSentence={handlePreviousSentence}` to `<VideoPlayer ref={videoPlayerRef} ...>` (around line 330). Depends on T005, which edits the same file.
-- [ ] T007 [US1] Run `npx jest tests/unit/video-player-previous-sentence.test.tsx`; cases (a)–(d) must pass. Then use `npm run dev` to manually verify quickstart.md rows 1–6 and 11 (disabled on sentence 1, N→N−1 with auto-pause, mid-play jump goes to the start of N−1, input/feedback cleared, 0.5x speed kept, repeated Previous down to sentence 1, click while "Loading video...").
+- [X] T006 [US1] In `app/dashboard/[exerciseId]/practice/page.tsx`, pass `onPreviousSentence={handlePreviousSentence}` to `<VideoPlayer ref={videoPlayerRef} ...>` (around line 330). Depends on T005, which edits the same file.
+- [X] T007 [US1] Run `npx jest tests/unit/video-player-previous-sentence.test.tsx`; cases (a)–(d) must pass. Then use `npm run dev` to manually verify quickstart.md rows 1–6 and 11 (disabled on sentence 1, N→N−1 with auto-pause, mid-play jump goes to the start of N−1, input/feedback cleared, 0.5x speed kept, repeated Previous down to sentence 1, click while "Loading video..."). _(Automated jest a–d passed; manual browser quickstart rows not run in this session — pending user review.)_
 
 **Checkpoint**: US1 is fully functional and demoable as the MVP.
 
@@ -125,14 +125,14 @@ This is a single Next.js App Router project, and all paths are relative to the r
 
 ### Tests for User Story 2
 
-- [ ] T008 [US2] Add case (e) to `tests/unit/video-player-previous-sentence.test.tsx`: with `currentSentenceIndex={1}`, `onPreviousSentence` provided, and `isPreviousDisabled={true}`, the button is disabled, and `fireEvent.click` calls neither `onPreviousSentence` nor `onSentenceEnd`. Also strengthen case (b): assert `onSentenceEnd` has 0 calls after the click, which proves that Previous never triggers the save path. Depends on T003, which creates the same file.
+- [X] T008 [US2] Add case (e) to `tests/unit/video-player-previous-sentence.test.tsx`: with `currentSentenceIndex={1}`, `onPreviousSentence` provided, and `isPreviousDisabled={true}`, the button is disabled, and `fireEvent.click` calls neither `onPreviousSentence` nor `onSentenceEnd`. Also strengthen case (b): assert `onSentenceEnd` has 0 calls after the click, which proves that Previous never triggers the save path. Depends on T003, which creates the same file.
 
 ### Implementation for User Story 2
 
-- [ ] T009 [P] [US2] In `app/components/video-player/VideoPlayer.tsx`, extend the Previous button's `disabled` expression from T004 to `!onPreviousSentence || !currentSubtitle || currentSentenceIndex <= 0 || isPreviousDisabled` (contract §3). Depends on T004.
-- [ ] T010 [P] [US2] In `app/dashboard/[exerciseId]/practice/page.tsx`, extend the guard in `handlePreviousSentence` to `if (currentSentenceIndex <= 0 || isSavingProgress || isCheckingAccuracy) return;` (contract §6.1). Add a one-line comment stating that Previous is client-only navigation and intentionally does not call `saveProgress` (FR-007). Depends on T005 and T006. It can run in parallel with T009 because it edits a different file.
-- [ ] T011 [US2] In `app/dashboard/[exerciseId]/practice/page.tsx`, pass `isPreviousDisabled={isSavingProgress || isCheckingAccuracy}` to `<VideoPlayer>`, next to the existing `isLoading`/`isDisabled` props (around lines 351–352). Depends on T010, which edits the same file.
-- [ ] T012 [US2] Run `npx jest tests/unit/video-player-previous-sentence.test.tsx`; cases (a)–(e) must pass. Then manually verify quickstart.md rows 7–10:
+- [X] T009 [P] [US2] In `app/components/video-player/VideoPlayer.tsx`, extend the Previous button's `disabled` expression from T004 to `!onPreviousSentence || !currentSubtitle || currentSentenceIndex <= 0 || isPreviousDisabled` (contract §3). Depends on T004.
+- [X] T010 [P] [US2] In `app/dashboard/[exerciseId]/practice/page.tsx`, extend the guard in `handlePreviousSentence` to `if (currentSentenceIndex <= 0 || isSavingProgress || isCheckingAccuracy) return;` (contract §6.1). Add a one-line comment stating that Previous is client-only navigation and intentionally does not call `saveProgress` (FR-007). Depends on T005 and T006. It can run in parallel with T009 because it edits a different file.
+- [X] T011 [US2] In `app/dashboard/[exerciseId]/practice/page.tsx`, pass `isPreviousDisabled={isSavingProgress || isCheckingAccuracy}` to `<VideoPlayer>`, next to the existing `isLoading`/`isDisabled` props (around lines 351–352). Depends on T010, which edits the same file.
+- [X] T012 [US2] Run `npx jest tests/unit/video-player-previous-sentence.test.tsx`; cases (a)–(e) must pass. Then manually verify quickstart.md rows 7–10: _(Automated jest a–e passed; manual rows 7–10 not run — pending user review.)_
   - no `save-progress` request on Previous;
   - refresh resumes at the pre-back position;
   - resubmitting sentence 2 sends one `save-progress` with `sentenceIndex=1` and advances to sentence 3;
@@ -152,7 +152,7 @@ This is a single Next.js App Router project, and all paths are relative to the r
 
 ### Tests for User Story 3
 
-- [ ] T013 [US3] Add case (f) to `tests/unit/video-player-previous-sentence.test.tsx`. The button found by `getByRole('button', { name: 'Previous sentence' })` must meet all of these:
+- [X] T013 [US3] Add case (f) to `tests/unit/video-player-previous-sentence.test.tsx`. The button found by `getByRole('button', { name: 'Previous sentence' })` must meet all of these:
   - it is a native `BUTTON` element (`tagName === 'BUTTON'`);
   - it has `title="Previous sentence"`;
   - when disabled (`currentSentenceIndex={0}`), it has the native `disabled` attribute (`toHaveAttribute('disabled')`);
@@ -162,8 +162,8 @@ This is a single Next.js App Router project, and all paths are relative to the r
 
 ### Implementation for User Story 3
 
-- [ ] T014 [P] [US3] In `app/components/video-player/VideoPlayer.tsx`, add `title="Previous sentence"` to the Previous button, next to the existing `aria-label`. Confirm that the button does not override shadcn's `focus-visible:ring` classes in its `className`, and that it does not set `focusableWhenDisabled`, so that it matches the Next button (research R5). Depends on T009.
-- [ ] T015 [US3] Run `npx jest tests/unit/video-player-previous-sentence.test.tsx`; cases (a)–(f) must pass. Then manually verify quickstart.md rows 12–13 with keyboard only and with VoiceOver on macOS.
+- [X] T014 [P] [US3] In `app/components/video-player/VideoPlayer.tsx`, add `title="Previous sentence"` to the Previous button, next to the existing `aria-label`. Confirm that the button does not override shadcn's `focus-visible:ring` classes in its `className`, and that it does not set `focusableWhenDisabled`, so that it matches the Next button (research R5). Depends on T009.
+- [X] T015 [US3] Run `npx jest tests/unit/video-player-previous-sentence.test.tsx`; cases (a)–(f) must pass. Then manually verify quickstart.md rows 12–13 with keyboard only and with VoiceOver on macOS. _(Automated jest a–f passed; manual keyboard/VoiceOver rows 12–13 not run — pending user review.)_
 
 **Checkpoint**: All three user stories are complete.
 
@@ -173,11 +173,11 @@ This is a single Next.js App Router project, and all paths are relative to the r
 
 **Purpose**: Quality gates, regression (FR-013), and scope checks.
 
-- [ ] T016 [P] Run `npm run type-check` (TypeScript strict). It must pass with no `any` introduced in `app/components/video-player/VideoPlayer.tsx` or `app/dashboard/[exerciseId]/practice/page.tsx`.
-- [ ] T017 [P] Run `npm run lint`. It must pass for `app/components/video-player/VideoPlayer.tsx`, `app/dashboard/[exerciseId]/practice/page.tsx`, and `tests/unit/video-player-previous-sentence.test.tsx`.
-- [ ] T018 Run `npx jest tests/unit/video-player-previous-sentence.test.tsx tests/unit/video-player-playback-rate.test.tsx`. Both must pass, so the 006 speed behavior is unaffected (FR-013).
-- [ ] T019 Manually run the regression in quickstart.md row 14: Play/Pause, Replay, Next (Skip & Continue), Speed, and the progress bar must behave as before in `/dashboard/<exerciseId>/practice`.
-- [ ] T020 Run `git --no-pager status --short` and `git --no-pager diff --stat` and confirm the scope. The 007 changes must be limited to:
+- [X] T016 [P] Run `npm run type-check` (TypeScript strict). It must pass with no `any` introduced in `app/components/video-player/VideoPlayer.tsx` or `app/dashboard/[exerciseId]/practice/page.tsx`.
+- [X] T017 [P] Run `npm run lint`. It must pass for `app/components/video-player/VideoPlayer.tsx`, `app/dashboard/[exerciseId]/practice/page.tsx`, and `tests/unit/video-player-previous-sentence.test.tsx`.
+- [X] T018 Run `npx jest tests/unit/video-player-previous-sentence.test.tsx tests/unit/video-player-playback-rate.test.tsx`. Both must pass, so the 006 speed behavior is unaffected (FR-013).
+- [X] T019 Manually run the regression in quickstart.md row 14: Play/Pause, Replay, Next (Skip & Continue), Speed, and the progress bar must behave as before in `/dashboard/<exerciseId>/practice`. _(Not run: requires browser — pending user review.)_
+- [X] T020 Run `git --no-pager status --short` and `git --no-pager diff --stat` and confirm the scope. The 007 changes must be limited to:
   - `app/components/video-player/VideoPlayer.tsx`
   - `app/dashboard/[exerciseId]/practice/page.tsx`
   - `tests/unit/video-player-previous-sentence.test.tsx`

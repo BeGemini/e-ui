@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
-import { Play, Pause, RotateCcw, SkipForward } from 'lucide-react';
+import { Play, Pause, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,6 +14,8 @@ const PLAYBACK_RATE_ITEMS = PLAYBACK_RATES.map((r) => ({ value: r, label: `${r}x
 function isPlaybackRate(v: unknown): v is PlaybackRate {
   return PLAYBACK_RATES.includes(v as PlaybackRate);
 }
+
+type Segment = { index: number; startSeconds: number; endSeconds: number };
 
 interface VideoPlayerProps {
   videoUrl: string;
@@ -29,6 +31,11 @@ interface VideoPlayerProps {
   totalSentences?: number;
   onSentenceEnd: (sentenceIndex: number, reason: 'auto' | 'skip') => void;
   onTimeUpdate?: (currentTime: number) => void;
+  /** Called when the user activates "Previous sentence". The parent owns the
+   *  sentence index and is responsible for switching + playback. */
+  onPreviousSentence?: () => void;
+  /** Extra lock from the parent (e.g. save/check in flight). Defaults to false. */
+  isPreviousDisabled?: boolean;
 }
 
 export interface VideoPlayerRef {
@@ -43,10 +50,17 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
   totalSentences: totalSentencesProp,
   onSentenceEnd,
   onTimeUpdate,
+  onPreviousSentence,
+  isPreviousDisabled = false,
 }: VideoPlayerProps, ref) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pendingSeekRef = useRef<number | null>(null);
   const pendingPlayRef = useRef(false);
+  // The sentence currently being played as a bounded segment. Kept in a ref so
+  // end detection never depends on a stale `isPlaying` closure.
+  const segmentRef = useRef<Segment | null>(null);
+  // Removes the pending "play after seeked" listener, if any.
+  const cancelSeekPlayRef = useRef<(() => void) | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -64,30 +78,66 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
     video.playbackRate = playbackRate;
   }, [playbackRate]);
 
-  // Expose imperative playback control so the parent can trigger playback
-  // when the user advances to the next sentence.
-  useImperativeHandle(ref, () => ({
-    playSentenceAtIndex: (index: number) => {
-      const video = videoRef.current;
-      const targetSubtitle = index < subtitles.length ? subtitles[index] : null;
-      if (!video || !targetSubtitle) return;
+  const cancelPendingSeekPlay = useCallback(() => {
+    cancelSeekPlayRef.current?.();
+    cancelSeekPlayRef.current = null;
+  }, []);
 
-      video.currentTime = targetSubtitle.startSeconds;
-      setCurrentTime(targetSubtitle.startSeconds);
+  // Seek to `fromTime` and play the segment. Playback only starts once the
+  // seek has completed, otherwise the browser briefly plays (and shows) the
+  // old position — typically the start of the next sentence.
+  const playSegment = useCallback((segment: Segment, fromTime: number = segment.startSeconds) => {
+    const video = videoRef.current;
+    if (!video) return;
 
-      if (!isReady) {
-        pendingPlayRef.current = true;
-        setIsPlaying(true);
-        return;
-      }
+    cancelPendingSeekPlay();
+    segmentRef.current = segment;
+    setIsPlaying(true);
 
+    const needsSeek = Math.abs(video.currentTime - fromTime) > 0.01;
+    if ((needsSeek || video.seeking) && !video.paused) {
+      video.pause();
+    }
+    if (needsSeek) {
+      video.currentTime = fromTime;
+      setCurrentTime(fromTime);
+    }
+
+    if (!isReady) {
+      // The canplay handler resumes playback after loading.
+      pendingPlayRef.current = true;
+      return;
+    }
+
+    const start = () => {
       video.play().catch(() => {
         // Autoplay may be blocked; keep button state consistent
         setIsPlaying(false);
       });
-      setIsPlaying(true);
+    };
+
+    if (!video.seeking) {
+      start();
+      return;
+    }
+
+    const onSeeked = () => {
+      cancelSeekPlayRef.current = null;
+      start();
+    };
+    video.addEventListener('seeked', onSeeked, { once: true });
+    cancelSeekPlayRef.current = () => video.removeEventListener('seeked', onSeeked);
+  }, [isReady, cancelPendingSeekPlay]);
+
+  // Expose imperative playback control so the parent can trigger playback
+  // when the user advances to the next sentence.
+  useImperativeHandle(ref, () => ({
+    playSentenceAtIndex: (index: number) => {
+      const targetSubtitle = index < subtitles.length ? subtitles[index] : null;
+      if (!targetSubtitle) return;
+      playSegment(targetSubtitle);
     },
-  }), [subtitles, isReady]);
+  }), [subtitles, playSegment]);
 
   // Add token to video URL. Reading localStorage must happen in an effect
   // to avoid SSR/hydration mismatches.
@@ -155,22 +205,48 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
     }
   }, [isReady, applyPendingSeek]);
 
+  const stopAtSegmentEnd = useCallback(() => {
+    const video = videoRef.current;
+    const segment = segmentRef.current;
+    // Ignore mid-seek positions: they may still report the pre-seek time.
+    if (!video || !segment || video.paused || video.seeking) return;
+    if (video.currentTime < segment.endSeconds) return;
+
+    segmentRef.current = null;
+    video.pause();
+    // Pull back from any overshoot so the paused frame belongs to this
+    // sentence rather than the next one.
+    const settleTime = Math.max(segment.startSeconds, segment.endSeconds - 0.05);
+    video.currentTime = settleTime;
+    setCurrentTime(settleTime);
+    setIsPlaying(false);
+    // Notify parent that the sentence finished playing, but do not auto-advance
+    onSentenceEnd(segment.index, 'auto');
+  }, [onSentenceEnd]);
+
+  // `timeupdate` fires only every ~250ms, so poll every frame while playing
+  // to stop close to the sentence end.
+  useEffect(() => {
+    if (!isPlaying) return;
+    let frameId = 0;
+    const tick = () => {
+      stopAtSegmentEnd();
+      frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [isPlaying, stopAtSegmentEnd]);
+
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current;
-    if (!video || !currentSubtitle) return;
+    if (!video) return;
 
     const time = video.currentTime;
     setCurrentTime(time);
     onTimeUpdate?.(time);
-
-    // Check if we've reached the end of current subtitle
-    if (isPlaying && time >= currentSubtitle.endSeconds && time < currentSubtitle.endSeconds + 0.5) {
-      video.pause();
-      setIsPlaying(false);
-      // Notify parent that the sentence finished playing, but do not auto-advance
-      onSentenceEnd(currentSubtitle.index, 'auto');
-    }
-  }, [isPlaying, currentSubtitle, onSentenceEnd, onTimeUpdate]);
+    // Fallback for when rAF is throttled (e.g. background tab).
+    stopAtSegmentEnd();
+  }, [onTimeUpdate, stopAtSegmentEnd]);
 
   const handleLoadedMetadata = useCallback(() => {
     const video = videoRef.current;
@@ -211,6 +287,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
 
     if (isPlaying) {
       pendingPlayRef.current = false;
+      cancelPendingSeekPlay();
       video.pause();
       setIsPlaying(false);
       return;
@@ -218,57 +295,39 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
 
     // Ensure playback starts inside the current subtitle range.
     // If the user is outside the range (e.g. after a page reload where the
-    // seek did not apply yet), jump to the start of the current sentence.
-    if (
+    // seek did not apply yet, or after auto-pausing at the sentence end),
+    // restart from the beginning of the current sentence.
+    const isOutsideSentence =
       video.currentTime < currentSubtitle.startSeconds - 0.1 ||
-      video.currentTime > currentSubtitle.endSeconds + 0.1
-    ) {
-      video.currentTime = currentSubtitle.startSeconds;
-      setCurrentTime(currentSubtitle.startSeconds);
-    }
-
-    if (!isReady) {
-      // Defer playback until the video is ready; the canplay handler will
-      // resume playing after applying any pending seek.
-      pendingPlayRef.current = true;
-      setIsPlaying(true);
-      return;
-    }
-
-    video.play().catch(() => {
-      setIsPlaying(false);
-    });
-    setIsPlaying(true);
+      video.currentTime >= currentSubtitle.endSeconds - 0.1;
+    playSegment(
+      currentSubtitle,
+      isOutsideSentence ? currentSubtitle.startSeconds : video.currentTime
+    );
   };
 
   const handleReplay = () => {
-    const video = videoRef.current;
-    if (!video || !currentSubtitle) return;
-
-    video.currentTime = currentSubtitle.startSeconds;
-    setCurrentTime(currentSubtitle.startSeconds);
-    video.play();
-    setIsPlaying(true);
+    if (!currentSubtitle) return;
+    playSegment(currentSubtitle);
   };
 
   const handleSkipReplay = () => {
     if (!currentSubtitle || currentSentenceIndex >= subtitles.length - 1) return;
 
-    const video = videoRef.current;
-    if (!video) return;
-
     // Move to next subtitle
-    const nextSubtitle = subtitles[currentSentenceIndex + 1];
-    video.currentTime = nextSubtitle.startSeconds;
-    setCurrentTime(nextSubtitle.startSeconds);
-    video.play();
-    setIsPlaying(true);
+    playSegment(subtitles[currentSentenceIndex + 1]);
     onSentenceEnd(currentSubtitle.index, 'skip');
   };
 
   const handleSliderChange = (value: number[]) => {
     const video = videoRef.current;
     if (!video) return;
+
+    // Dragging outside the active sentence ends the bounded segment playback.
+    const segment = segmentRef.current;
+    if (segment && (value[0] < segment.startSeconds || value[0] >= segment.endSeconds)) {
+      segmentRef.current = null;
+    }
 
     video.currentTime = value[0];
     setCurrentTime(value[0]);
@@ -294,6 +353,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
               setIsLoading(true);
               setIsReady(false);
               pendingPlayRef.current = false;
+              cancelPendingSeekPlay();
             }}
             onLoadedMetadata={handleLoadedMetadata}
             onCanPlay={handleCanPlay}
@@ -346,6 +406,17 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
 
       {/* Controls */}
       <div className="flex items-center justify-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onPreviousSentence}
+          disabled={!onPreviousSentence || !currentSubtitle || currentSentenceIndex <= 0 || isPreviousDisabled}
+          className="bg-transparent border-0 text-gray-300 hover:bg-gray-700 hover:text-white rounded disabled:text-gray-500"
+          aria-label="Previous sentence"
+          title="Previous sentence"
+        >
+          <SkipBack size={16} />
+        </Button>
         <Button
           variant="outline"
           size="sm"
