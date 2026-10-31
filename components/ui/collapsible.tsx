@@ -45,13 +45,14 @@ const CollapsibleTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement>
 >(({ children, onClick, ...props }, ref) => {
-  const { onOpenChange } = useCollapsible()
+  const { open, onOpenChange } = useCollapsible()
 
   return (
     <button
       ref={ref}
+      aria-expanded={open}
       onClick={(e) => {
-        onOpenChange(true)
+        onOpenChange(!open)
         onClick?.(e)
       }}
       {...props}

@@ -8,7 +8,6 @@ interface ExerciseSummaryCardProps {
   overallAccuracy: number;
   completionDate: string;
   totalSentences: number;
-  timeSpent: number;
   onRetake: () => void;
   onViewHistory: () => void;
 }
@@ -17,7 +16,6 @@ export function ExerciseSummaryCard({
   overallAccuracy,
   completionDate,
   totalSentences,
-  timeSpent,
   onRetake,
   onViewHistory,
 }: ExerciseSummaryCardProps) {
@@ -30,7 +28,6 @@ export function ExerciseSummaryCard({
   };
 
   const accuracyLevel = getAccuracyLevel();
-  const formattedTime = Math.round(timeSpent / 60);
 
   return (
     <Card className={`p-6 ${accuracyLevel.bg} border-0`}>
@@ -57,14 +54,10 @@ export function ExerciseSummaryCard({
         </div>
 
         {/* Statistics Grid */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <div className="rounded-lg bg-white/50 p-3 text-center">
             <p className="text-2xl font-bold text-gray-900">{totalSentences}</p>
             <p className="text-xs text-gray-600">Total Sentences</p>
-          </div>
-          <div className="rounded-lg bg-white/50 p-3 text-center">
-            <p className="text-2xl font-bold text-gray-900">{formattedTime}m</p>
-            <p className="text-xs text-gray-600">Time Spent</p>
           </div>
           <div className="rounded-lg bg-white/50 p-3 text-center">
             <p className="text-2xl font-bold text-gray-900">

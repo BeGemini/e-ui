@@ -45,11 +45,20 @@ export async function GET(
       [progress.progressId, LAST_ATTEMPTS_LIMIT]
     );
 
+    const stats = await queryOne<{ totalAttempts: number; bestAccuracy: number | null }>(
+      `SELECT COUNT(*) AS totalAttempts, MAX(accuracy) AS bestAccuracy
+       FROM UserDictationAttempt
+       WHERE progressId = ?`,
+      [progress.progressId]
+    );
+
     return NextResponse.json(
       {
         success: true,
         progress,
         attempts,
+        totalAttempts: Number(stats?.totalAttempts ?? 0),
+        bestAccuracy: stats?.bestAccuracy != null ? Number(stats.bestAccuracy) : null,
       },
       { status: 200 }
     );

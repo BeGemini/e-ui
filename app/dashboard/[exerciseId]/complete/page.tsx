@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { ExerciseSummaryCard } from '@/app/components/practice/ExerciseSummaryCard';
 import { AttemptHistory } from '@/app/components/practice/AttemptHistory';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 
 interface Attempt {
@@ -19,10 +21,13 @@ interface Attempt {
 interface CompletionData {
   exerciseId: string;
   exerciseTitle: string;
+  isCompleted: boolean;
+  currentSentenceIndex: number;
   overallAccuracy: number;
-  completionDate: string;
+  completionDate: string | null;
   totalSentences: number;
-  timeSpent: number;
+  totalAttempts: number;
+  bestAccuracy: number | null;
   attempts: Attempt[];
 }
 
@@ -69,10 +74,14 @@ export default function ExerciseCompletionPage() {
         setCompletionData({
           exerciseId,
           exerciseTitle: exercise.title ?? '',
+          isCompleted: Boolean(progress.isCompleted),
+          currentSentenceIndex: Number(progress.currentSentenceIndex) || 0,
           overallAccuracy: Number(progress.overallAccuracy) || 0,
-          completionDate: progress.completedDate || new Date().toISOString(),
+          completionDate: progress.completedDate ?? null,
           totalSentences,
-          timeSpent: progress.totalTimeSpent || 0,
+          totalAttempts: Number(progressData.totalAttempts) || 0,
+          bestAccuracy:
+            progressData.bestAccuracy != null ? Number(progressData.bestAccuracy) : null,
           // API returns per-sentence attempts; adapt them to the summary shape
           attempts: (progressData.attempts || []).map((attempt: any) => ({
             attemptId: attempt.attemptId,
@@ -121,31 +130,78 @@ export default function ExerciseCompletionPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-2xl space-y-6">
-        {/* Celebration Header */}
-        <div className="text-center space-y-3">
-          <div className="text-6xl mb-2">🎉</div>
-          <h1 className="text-4xl font-bold text-green-600">Congratulations!</h1>
-          <p className="text-xl text-gray-600">
-            You have completed <strong>{completionData.exerciseTitle}</strong>
-          </p>
-        </div>
+  const { isCompleted, totalSentences, currentSentenceIndex } = completionData;
+  const progressPercent =
+    totalSentences > 0
+      ? Math.min(100, Math.round((currentSentenceIndex / totalSentences) * 100))
+      : 0;
 
-        {/* Summary Card */}
-        <ExerciseSummaryCard
-          overallAccuracy={Math.round(completionData.overallAccuracy)}
-          completionDate={completionData.completionDate}
-          totalSentences={completionData.totalSentences}
-          timeSpent={completionData.timeSpent}
-          onRetake={() => {
-            router.push(`/dashboard/${exerciseId}/practice`);
-          }}
-          onViewHistory={() => {
-            setShowHistory(!showHistory);
-          }}
-        />
+  return (
+    <div
+      className={`min-h-screen bg-gradient-to-b ${
+        isCompleted ? 'from-green-50' : 'from-blue-50'
+      } to-gray-50 py-8 px-4 sm:px-6 lg:px-8`}
+    >
+      <div className="mx-auto max-w-2xl space-y-6">
+        {isCompleted ? (
+          <>
+            {/* Celebration Header */}
+            <div className="text-center space-y-3">
+              <div className="text-6xl mb-2">🎉</div>
+              <h1 className="text-4xl font-bold text-green-600">Congratulations!</h1>
+              <p className="text-xl text-gray-600">
+                You have completed <strong>{completionData.exerciseTitle}</strong>
+              </p>
+            </div>
+
+            {/* Summary Card */}
+            <ExerciseSummaryCard
+              overallAccuracy={Math.round(completionData.overallAccuracy)}
+              completionDate={completionData.completionDate ?? new Date().toISOString()}
+              totalSentences={totalSentences}
+              onRetake={() => {
+                router.push(`/dashboard/${exerciseId}/practice`);
+              }}
+              onViewHistory={() => {
+                setShowHistory(!showHistory);
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <div className="text-center space-y-3">
+              <h1 className="text-4xl font-bold text-gray-900">Practice History</h1>
+              <p className="text-xl text-gray-600">
+                <strong>{completionData.exerciseTitle}</strong> is still in progress
+              </p>
+            </div>
+
+            <Card className="p-6 space-y-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">
+                  Sentence {Math.min(currentSentenceIndex + 1, totalSentences)} of {totalSentences}
+                </span>
+                <span className="font-medium text-gray-900">{progressPercent}%</span>
+              </div>
+              <Progress value={progressPercent} className="h-3" />
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="flex-1"
+                >
+                  {showHistory ? 'Hide History' : 'View History'}
+                </Button>
+                <Button
+                  onClick={() => router.push(`/dashboard/${exerciseId}/practice`)}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                >
+                  Continue Practice
+                </Button>
+              </div>
+            </Card>
+          </>
+        )}
 
         {/* Attempt History Section */}
         {showHistory && (
@@ -160,15 +216,12 @@ export default function ExerciseCompletionPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-lg bg-white border border-gray-200 p-4 text-center">
               <p className="text-sm text-gray-600">Total Attempts</p>
-              <p className="text-3xl font-bold text-gray-900">{completionData.attempts.length}</p>
+              <p className="text-3xl font-bold text-gray-900">{completionData.totalAttempts}</p>
             </div>
             <div className="rounded-lg bg-white border border-gray-200 p-4 text-center">
               <p className="text-sm text-gray-600">Best Accuracy</p>
               <p className="text-3xl font-bold text-green-600">
-                {completionData.attempts.length > 0
-                  ? Math.max(...completionData.attempts.map((a) => a.accuracy))
-                  : 0}
-                %
+                {Math.round(completionData.bestAccuracy ?? 0)}%
               </p>
             </div>
           </div>
@@ -194,12 +247,14 @@ export default function ExerciseCompletionPage() {
         </div>
 
         {/* Encouragement Message */}
-        <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-center">
-          <p className="text-sm text-blue-900">
-            <strong>Great job!</strong> Keep practicing to improve your listening comprehension.
-            You can retake this exercise anytime to beat your score! 📚
-          </p>
-        </div>
+        {isCompleted && (
+          <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-center">
+            <p className="text-sm text-blue-900">
+              <strong>Great job!</strong> Keep practicing to improve your listening comprehension.
+              You can retake this exercise anytime to beat your score! 📚
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
