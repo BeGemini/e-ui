@@ -40,10 +40,19 @@ export async function GET(
       [session.userId, exerciseId]
     );
 
+    // Reflect the user's merge/skip config in the sentence count
+    const subtitleConfig = await queryOne<{ effectiveSentenceCount: number | null }>(
+      'SELECT effectiveSentenceCount FROM UserSubtitleConfig WHERE userId = ? AND exerciseId = ?',
+      [session.userId, exerciseId]
+    );
+
     return NextResponse.json(
       {
         success: true,
-        exercise,
+        exercise: {
+          ...exercise,
+          totalSentences: subtitleConfig?.effectiveSentenceCount ?? exercise.totalSentences,
+        },
         progress: progress || null,
       },
       { status: 200 }

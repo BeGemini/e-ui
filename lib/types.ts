@@ -248,6 +248,30 @@ export interface SaveProgressResponse {
   overallAccuracy?: number;
 }
 
+// POST /api/practice/[exerciseId]/save-attempt request body
+export interface SaveAttemptRequest {
+  sentenceIndex: number; // integer, >= 0
+  userInput: string; // non-empty after trim
+  correctText: string; // original sentence snapshot, non-empty
+  accuracy: number; // 0–100
+  wordFeedback?: WordFeedback[];
+}
+
+// One saved sentence in "My Sentences"
+export interface MySentence {
+  sentenceIndex: number; // 0-based
+  userInput: string; // empty string means the sentence was skipped
+  correctAnswer: string; // original sentence snapshot
+  savedAt: string; // ISO 8601
+}
+
+// GET /api/practice/[exerciseId]/sentences response
+export interface MySentencesResponse {
+  success: true;
+  exercise: { exerciseId: string; title: string };
+  sentences: MySentence[]; // ascending by sentenceIndex, at most one per index
+}
+
 // Subtitle Configuration
 export interface SubtitleConfigRequest {
   mergedGroups: MergeGroup[];

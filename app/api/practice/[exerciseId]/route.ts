@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { RowDataPacket } from 'mysql2/promise';
 import { verifySessionFromRequest } from '@/lib/session';
-import { initializeDatabase, query, queryOne } from '@/lib/db';
+import { initializeDatabase, query, queryOne, execute } from '@/lib/db';
 import { Exercise, UserSubtitleConfig, ParsedSubtitle, EffectiveSubtitle, UserExerciseProgress, KnowledgePoint } from '@/lib/types';
 import { downloadFile } from '@/lib/cos-client';
 import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
@@ -128,12 +128,26 @@ export async function GET(
       processedSubtitles = applySubtitleConfig(subtitles, configInput, { omitSkipped: true });
     }
 
-    // Determine authoritative total sentence count:
-    // prefer user's computed effective count, fall back to Exercise.totalSentences
-    const effectiveSentenceCount = userConfig?.effectiveSentenceCount ?? null;
-    const totalSentences = effectiveSentenceCount !== null && effectiveSentenceCount !== undefined
-      ? effectiveSentenceCount
-      : exercise.totalSentences;
+    // Authoritative total: the effective subtitles actually served. Fall back to the
+    // persisted effective count (or raw total) only when subtitles couldn't be loaded.
+    const storedEffectiveCount = userConfig?.effectiveSentenceCount ?? null;
+    let totalSentences: number;
+    if (!rawSubtitlesRequested && subtitles.length > 0) {
+      totalSentences = processedSubtitles.length;
+      // Self-heal stale/incorrect persisted counts so list/detail views stay consistent
+      if (userConfig && storedEffectiveCount !== totalSentences) {
+        try {
+          await execute(
+            'UPDATE UserSubtitleConfig SET effectiveSentenceCount = ? WHERE userId = ? AND exerciseId = ?',
+            [totalSentences, session.userId, exerciseId]
+          );
+        } catch (err) {
+          console.error('Failed to sync effectiveSentenceCount:', err);
+        }
+      }
+    } else {
+      totalSentences = storedEffectiveCount ?? exercise.totalSentences;
+    }
 
     const result: ExerciseWithSubtitles = {
       ...exercise,

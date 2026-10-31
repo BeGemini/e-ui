@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { NotebookText } from 'lucide-react';
 
 export default function ExerciseDetailPage() {
   const router = useRouter();
@@ -35,7 +36,9 @@ export default function ExerciseDetailPage() {
         }
 
         const data = await res.json();
-        setExercise(data);
+        setExercise(
+          data.exercise ? { ...data.exercise, userProgress: data.progress } : null
+        );
       } catch (err) {
         console.error('Failed to load exercise:', err);
         setError('Error loading exercise');
@@ -188,16 +191,16 @@ export default function ExerciseDetailPage() {
                       Sentence {exercise.userProgress.currentSentenceIndex + 1}
                     </span>
                   </p>
-                  {exercise.userProgress.isCompleted && (
+                  {Boolean(exercise.userProgress.isCompleted) && (
                     <p className="text-green-700 font-medium">
                       ✓ Completed
                     </p>
                   )}
-                  {exercise.userProgress.overallAccuracy && (
+                  {exercise.userProgress.overallAccuracy != null && (
                     <p>
                       Best Accuracy:{' '}
                       <span className="font-semibold">
-                        {exercise.userProgress.overallAccuracy.toFixed(1)}%
+                        {Number(exercise.userProgress.overallAccuracy).toFixed(1)}%
                       </span>
                     </p>
                   )}
@@ -228,6 +231,14 @@ export default function ExerciseDetailPage() {
             className="flex-1 border-gray-300 hover:bg-gray-100"
           >
             View History
+          </Button>
+          <Button
+            onClick={() => router.push(`/dashboard/${exerciseId}/sentences`)}
+            variant="outline"
+            className="flex-1 border-gray-300 hover:bg-gray-100"
+          >
+            <NotebookText />
+            My Sentences
           </Button>
         </div>
       </main>

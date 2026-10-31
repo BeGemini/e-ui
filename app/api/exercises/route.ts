@@ -102,8 +102,15 @@ export async function GET(request: NextRequest) {
               [session.userId, exercise.exerciseId]
             );
 
+            // Reflect the user's merge/skip config in the displayed sentence count
+            const subtitleConfig = await queryOne<{ effectiveSentenceCount: number | null }>(
+              'SELECT effectiveSentenceCount FROM UserSubtitleConfig WHERE userId = ? AND exerciseId = ?',
+              [session.userId, exercise.exerciseId]
+            );
+
             const exerciseData: ExerciseInHierarchy = {
               ...exercise,
+              totalSentences: subtitleConfig?.effectiveSentenceCount ?? exercise.totalSentences,
               // isCompleted is stored as 0/1 in the DB; coerce to boolean so
               // `{completed && ...}` never renders a literal "0" on the client
               completed: Boolean(progress?.isCompleted),

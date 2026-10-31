@@ -112,6 +112,11 @@ cd /opt/e-ui
 - `001_initial_schema.sql` — 创建 Series、Season、Episode、Exercise、User 等核心表
 - `002_add_effective_sentence_count.sql` — 添加 effectiveSentenceCount 字段
 - `003_add_knowledge_points.sql` — 添加知识点相关表
+- `005_unique_dictation_attempt.sql` — 每句作答只保留一条：先删除同一句的历史重复作答（只留最新一条），再给 `UserDictationAttempt` 加 `UNIQUE(progressId, sentenceIndex)`
+
+> ⚠️ **部署 005 前先备份**：该迁移会**不可逆地删除**重复的历史作答。执行前先运行
+> `mysqldump <db> UserDictationAttempt > backup-UserDictationAttempt-<date>.sql`。
+> `scripts/deploy.sh` 会先执行 `npm run db:migrate` 再启动新代码。
 
 `npm run db:migrate` 会：
 1. 自动创建数据库（如果不存在）

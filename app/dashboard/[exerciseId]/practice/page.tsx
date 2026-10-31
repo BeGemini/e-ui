@@ -8,7 +8,8 @@ import { DictationInput } from '@/app/components/dictation/DictationInput';
 import { WordFeedbackDisplay } from '@/app/components/dictation/WordFeedbackDisplay';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import type { KnowledgePoint } from '@/lib/types';
+import { Captions, NotebookText } from 'lucide-react';
+import type { KnowledgePoint, SaveAttemptRequest } from '@/lib/types';
 
 interface Subtitle {
   index: number;
@@ -42,8 +43,15 @@ interface WordFeedback {
 
 interface CheckResponse {
   accuracy: number;
+  correctText?: string;
   wordFeedback: WordFeedback[];
 }
+
+// Same fields as SaveAttemptRequest; wordFeedback carries the /check response shape,
+// exactly as save-progress already does (stored as JSON).
+type SaveAttemptPayload = Omit<SaveAttemptRequest, 'wordFeedback'> & {
+  wordFeedback: WordFeedback[];
+};
 
 export default function PracticePage() {
   const params = useParams();
@@ -61,6 +69,33 @@ export default function PracticePage() {
   const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [completionMessage, setCompletionMessage] = useState('');
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
+  // Serializes sentence saves so they reach the server in the order the user acted.
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
+
+  // Queue a background save of the checked sentence. Never rejects, never blocks the UI.
+  const enqueueSaveAttempt = (payload: SaveAttemptPayload) => {
+    saveChainRef.current = saveChainRef.current.then(async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/practice/${exerciseId}/save-attempt`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          throw new Error('Failed to save sentence');
+        }
+      } catch {
+        toast({
+          title: "Couldn't save your sentence",
+          description: 'Your feedback is still shown. You can keep practicing.',
+        });
+      }
+    });
+  };
 
   // Fetch practice data on mount or when exerciseId changes
   useEffect(() => {
@@ -158,6 +193,15 @@ export default function PracticePage() {
       const feedback: CheckResponse = await response.json();
       setCurrentFeedback(feedback);
 
+      // Save in the background after showing feedback; does not advance the sentence.
+      enqueueSaveAttempt({
+        sentenceIndex: currentSubtitle.index,
+        userInput: userInput.trim(),
+        correctText: feedback.correctText ?? currentSubtitle.text,
+        accuracy: feedback.accuracy,
+        wordFeedback: feedback.wordFeedback,
+      });
+
       toast({
         title: 'Checked',
         description: `Accuracy: ${feedback.accuracy}%`,
@@ -227,6 +271,8 @@ export default function PracticePage() {
 
     try {
       setIsSavingProgress(true);
+      // Wait for any saves queued by earlier Checks so this Next/Skip write is always the last one.
+      await saveChainRef.current;
       const token = localStorage.getItem('token');
 
       const isCompleted =
@@ -332,9 +378,25 @@ export default function PracticePage() {
                 Sentence {currentSentenceIndex + 1} of {totalSentences} ({progressPercent}%)
               </p>
             </div>
-            <Button variant="outline" onClick={() => router.back()}>
-              Back
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/dashboard/${exerciseId}/subtitles`)}
+              >
+                <Captions />
+                Customize Subtitles
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/dashboard/${exerciseId}/sentences`)}
+              >
+                <NotebookText />
+                My Sentences
+              </Button>
+              <Button variant="outline" onClick={() => router.back()}>
+                Back
+              </Button>
+            </div>
           </div>
 
           {/* Main content: video on the left (2/3), dictation/feedback on the right (1/3) */}

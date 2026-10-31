@@ -22,10 +22,12 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
+    "@react-pdf/renderer": "^4.9.0",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.6",
     "cos-nodejs-sdk-v5": "^2.12.5",
+    "docx": "^9.15.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^1.43.0",
     "mysql2": "^3.6.5",
@@ -39,9 +41,9 @@
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/react": "^16.3.0",
-    "@testing-library/dom": "^10.4.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/jest": "^29.5.10",
     "@types/jsonwebtoken": "^9.0.5",

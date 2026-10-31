@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
 import { verifySessionFromRequest } from '@/lib/session';
 import { initializeDatabase, queryOne, execute, query } from '@/lib/db';
-import { UserExerciseProgress, UserDictationAttempt, UserSubtitleConfig } from '@/lib/types';
+import { getOrCreateProgress, upsertAttempt } from '@/lib/dictation-attempts';
+import { UserExerciseProgress, UserDictationAttempt, UserSubtitleConfig, WordFeedback } from '@/lib/types';
 
 interface SaveProgressRequest {
   sentenceIndex: number;
   userInput?: string;
   accuracy: number;
   correctText?: string;
-  wordFeedback?: any[];
+  wordFeedback?: WordFeedback[];
   isCompleted?: boolean;
 }
 
@@ -42,47 +42,17 @@ export async function POST(
     }
 
     // Get user's progress for this exercise, creating it if this is the first save
-    let progress = await queryOne<UserExerciseProgress>(
-      'SELECT * FROM UserExerciseProgress WHERE userId = ? AND exerciseId = ?',
-      [session.userId, exerciseId]
-    );
+    let progress: UserExerciseProgress | null = await getOrCreateProgress(session.userId, exerciseId);
 
-    if (!progress) {
-      const progressId = uuidv4();
-      await execute(
-        `INSERT INTO UserExerciseProgress (progressId, userId, exerciseId, currentSentenceIndex, isCompleted)
-         VALUES (?, ?, ?, 0, 0)`,
-        [progressId, session.userId, exerciseId]
-      );
-
-      progress = await queryOne<UserExerciseProgress>(
-        'SELECT * FROM UserExerciseProgress WHERE progressId = ?',
-        [progressId]
-      );
-    }
-
-    if (!progress) {
-      return NextResponse.json(
-        { error: 'Could not initialize exercise progress' },
-        { status: 500 }
-      );
-    }
-
-    // Create dictation attempt record
-    const attemptId = uuidv4();
-    await execute(
-      `INSERT INTO UserDictationAttempt (attemptId, progressId, sentenceIndex, userInput, correctAnswer, accuracy, wordFeedback, attemptDate)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [
-        attemptId,
-        progress.progressId,
-        sentenceIndex,
-        userInput ?? '',
-        correctText ?? '',
-        accuracy,
-        JSON.stringify(wordFeedback ?? []),
-      ]
-    );
+    // Save the dictation attempt, overwriting any earlier save for this sentence
+    await upsertAttempt({
+      progressId: progress.progressId,
+      sentenceIndex,
+      userInput: userInput ?? '',
+      correctAnswer: correctText ?? '',
+      accuracy,
+      wordFeedback: wordFeedback ?? [],
+    });
 
     // Update progress: move to next sentence
     const nextSentenceIndex = sentenceIndex + 1;
