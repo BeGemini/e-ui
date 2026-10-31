@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
 
   const parsed = await parseBody(request, AdminSeasonCreateSchema);
   if ('response' in parsed) return parsed.response;
-  const { seriesId, seasonNumber, description } = parsed.data;
+  const { seriesId, seasonNumber, title, description } = parsed.data;
 
   try {
     await initializeDatabase();
@@ -19,12 +19,10 @@ export async function POST(request: NextRequest) {
     if (!series) return notFound('seriesId', 'Series not found');
 
     const seasonId = uuidv4();
-    await execute('INSERT INTO Season (seasonId, seriesId, seasonNumber, description) VALUES (?, ?, ?, ?)', [
-      seasonId,
-      seriesId,
-      seasonNumber,
-      description ?? null,
-    ]);
+    await execute(
+      'INSERT INTO Season (seasonId, seriesId, seasonNumber, title, description) VALUES (?, ?, ?, ?, ?)',
+      [seasonId, seriesId, seasonNumber, title ?? null, description ?? null]
+    );
     return NextResponse.json({ seasonId }, { status: 201 });
   } catch (error) {
     if (isDuplicateEntry(error)) return conflict('seasonNumber', `Season ${seasonNumber} already exists in this series`);

@@ -38,13 +38,27 @@ test.describe('Dictation Practice Flow', () => {
     await expect(page.locator('h1')).toContainText('Desperate Housewives');
 
     // Click "Start Practice" button
-    await page.click('button:has-text("Start Practice")');
+    await page.getByRole('button', { name: 'Start Practice', exact: true }).click();
 
     // Wait for practice page
     await page.waitForURL(/\/dashboard\/.*\/practice/, { timeout: 5000 });
 
     // Verify practice page is displayed with video player
     await expect(page.locator('video')).toBeVisible({ timeout: 3000 });
+
+    for (const name of ['Back to dashboard', 'Customize Subtitles', 'Knowledge Points', 'My Sentences', 'Back']) {
+      const button = page.getByRole('button', { name, exact: true });
+      await expect(button).toBeVisible();
+      await expect(button).toHaveText('');
+      await expect(button).toHaveAttribute('title', name);
+      await expect(button.locator('svg')).toHaveCount(1);
+    }
+
+    const dashboardButton = page.getByRole('button', { name: 'Back to dashboard', exact: true });
+    await expect(dashboardButton.locator('xpath=following-sibling::button[1]'))
+      .toHaveAttribute('aria-label', 'Customize Subtitles');
+    await dashboardButton.click();
+    await page.waitForURL('/dashboard');
   });
 
   test('should show subtitle text during practice', async ({ page }) => {
@@ -54,7 +68,7 @@ test.describe('Dictation Practice Flow', () => {
     const exerciseCard = page.locator('text=Desperate Housewives');
     await exerciseCard.click();
     await page.waitForURL(/\/dashboard\/.*/, { timeout: 5000 });
-    await page.click('button:has-text("Start Practice")');
+    await page.getByRole('button', { name: 'Start Practice', exact: true }).click();
     await page.waitForURL(/\/dashboard\/.*\/practice/, { timeout: 5000 });
 
     // Verify subtitle display is visible
@@ -69,7 +83,7 @@ test.describe('Dictation Practice Flow', () => {
     const exerciseCard = page.locator('text=Desperate Housewives');
     await exerciseCard.click();
     await page.waitForURL(/\/dashboard\/.*/, { timeout: 5000 });
-    await page.click('button:has-text("Start Practice")');
+    await page.getByRole('button', { name: 'Start Practice', exact: true }).click();
     await page.waitForURL(/\/dashboard\/.*\/practice/, { timeout: 5000 });
 
     // Find dictation input textarea
@@ -91,7 +105,7 @@ test.describe('Dictation Practice Flow', () => {
     const exerciseCard = page.locator('text=Desperate Housewives');
     await exerciseCard.click();
     await page.waitForURL(/\/dashboard\/.*/, { timeout: 5000 });
-    await page.click('button:has-text("Start Practice")');
+    await page.getByRole('button', { name: 'Start Practice', exact: true }).click();
     await page.waitForURL(/\/dashboard\/.*\/practice/, { timeout: 5000 });
 
     // Find and verify dictation input has Clear button

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { LogOut, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ExerciseList from '@/app/components/exercise-list/ExerciseList';
 
@@ -90,16 +91,26 @@ export default function DashboardPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {user?.role === 'admin' && (
-                <Button variant="outline" render={<Link href="/admin" />} nativeButton={false}>
-                  Content management
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Content management"
+                  title="Content management"
+                  render={<Link href="/admin" />}
+                  nativeButton={false}
+                >
+                  <Settings />
                 </Button>
               )}
               <Button
                 onClick={handleLogout}
                 variant="outline"
+                size="icon"
+                aria-label="Logout"
+                title="Logout"
                 className="border-gray-300 hover:bg-gray-100"
               >
-                Logout
+                <LogOut />
               </Button>
             </div>
           </div>

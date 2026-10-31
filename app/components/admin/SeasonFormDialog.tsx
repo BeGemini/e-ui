@@ -23,11 +23,12 @@ interface SeasonFormDialogProps {
 export function SeasonFormDialog({ open, onOpenChange, series, defaultSeriesId, onCreated }: SeasonFormDialogProps) {
   const [seriesId, setSeriesId] = useState<string | null>(defaultSeriesId ?? null);
   const [seasonNumber, setSeasonNumber] = useState('');
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const { fieldErrors, formError, saving, submit } = useCreateSubmit(AdminSeasonCreateSchema, '/api/admin/seasons');
 
   const handleSubmit = async () => {
-    const ok = await submit({ seriesId: seriesId ?? '', seasonNumber, description });
+    const ok = await submit({ seriesId: seriesId ?? '', seasonNumber, title, description });
     if (ok) {
       onCreated();
       onOpenChange(false);
@@ -63,6 +64,16 @@ export function SeasonFormDialog({ open, onOpenChange, series, defaultSeriesId, 
                 step={1}
                 value={seasonNumber}
                 onChange={(e) => setSeasonNumber(e.target.value)}
+              />
+            )}
+          </FormField>
+          <FormField id="season-title" label="Name" error={fieldErrors.title}>
+            {(p) => (
+              <Input
+                {...p}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={seasonNumber ? `Season ${seasonNumber}` : 'Defaults to "Season N"'}
               />
             )}
           </FormField>

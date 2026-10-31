@@ -42,6 +42,7 @@ export interface Season {
   seasonId: string;
   seriesId: string;
   seasonNumber: number;
+  title?: string | null;
   description?: string;
   totalEpisodes: number;
   createdDate: Date;
@@ -189,6 +190,7 @@ export interface SeriesInfo {
 export interface SeasonInfo {
   seasonId: string;
   seasonNumber: number;
+  title?: string | null;
   description?: string;
   episodes: EpisodeInfo[];
 }
@@ -508,6 +510,7 @@ export interface AdminEpisodeNode {
 export interface AdminSeasonNode {
   seasonId: string;
   seasonNumber: number;
+  title: string | null;
   totalEpisodes: number;
   episodes: AdminEpisodeNode[];
 }
@@ -535,6 +538,7 @@ export interface AdminSeriesCreateRequest {
 export interface AdminSeasonCreateRequest {
   seriesId: string;
   seasonNumber: number;
+  title?: string;
   description?: string;
 }
 

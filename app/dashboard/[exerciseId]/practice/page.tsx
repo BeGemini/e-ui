@@ -8,7 +8,7 @@ import { DictationInput } from '@/app/components/dictation/DictationInput';
 import { WordFeedbackDisplay } from '@/app/components/dictation/WordFeedbackDisplay';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpen, Captions, NotebookText } from 'lucide-react';
+import { ArrowLeft, BookOpen, Captions, LayoutDashboard, NotebookText } from 'lucide-react';
 import type { KnowledgePoint, SaveAttemptRequest } from '@/lib/types';
 
 interface Subtitle {
@@ -381,27 +381,48 @@ export default function PracticePage() {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
+                size="icon"
+                aria-label="Back to dashboard"
+                title="Back to dashboard"
+                onClick={() => router.push('/dashboard')}
+              >
+                <LayoutDashboard />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Customize Subtitles"
+                title="Customize Subtitles"
                 onClick={() => router.push(`/dashboard/${exerciseId}/subtitles`)}
               >
                 <Captions />
-                Customize Subtitles
               </Button>
               <Button
                 variant="outline"
+                size="icon"
+                aria-label="Knowledge Points"
+                title="Knowledge Points"
                 onClick={() => router.push(`/dashboard/${exerciseId}/knowledge-points`)}
               >
                 <BookOpen />
-                Knowledge Points
               </Button>
               <Button
                 variant="outline"
+                size="icon"
+                aria-label="My Sentences"
+                title="My Sentences"
                 onClick={() => router.push(`/dashboard/${exerciseId}/sentences`)}
               >
                 <NotebookText />
-                My Sentences
               </Button>
-              <Button variant="outline" onClick={() => router.back()}>
-                Back
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Back"
+                title="Back"
+                onClick={() => router.back()}
+              >
+                <ArrowLeft />
               </Button>
             </div>
           </div>

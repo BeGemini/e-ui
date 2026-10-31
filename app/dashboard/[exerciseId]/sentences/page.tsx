@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -113,8 +114,14 @@ export default function MySentencesPage() {
               My Sentences · {sentences.length} {sentences.length === 1 ? 'sentence' : 'sentences'}
             </p>
           </div>
-          <Button variant="outline" onClick={() => router.push(`/dashboard/${exerciseId}`)}>
-            Back to exercise
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Back to exercise"
+            title="Back to exercise"
+            onClick={() => router.push(`/dashboard/${exerciseId}`)}
+          >
+            <ArrowLeft />
           </Button>
         </div>
 

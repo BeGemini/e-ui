@@ -55,9 +55,15 @@ export default function ExportMenu({ title, sentences, includeOriginal, disabled
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="outline" disabled={disabled || isBusy} aria-busy={isBusy}>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label={isBusy ? 'Exporting…' : 'Export'}
+            title={isBusy ? 'Exporting…' : 'Export'}
+            disabled={disabled || isBusy}
+            aria-busy={isBusy}
+          >
             <Download />
-            {isBusy ? 'Exporting…' : 'Export'}
           </Button>
         }
       />

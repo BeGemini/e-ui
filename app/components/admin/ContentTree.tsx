@@ -5,6 +5,7 @@ import { ChevronRight, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { seasonLabel } from '@/lib/season';
 import type { AdminContentTree } from '@/lib/types';
 import { formatDuration } from './admin-client';
 
@@ -113,7 +114,7 @@ export function ContentTree({ tree, onCreateChild }: ContentTreeProps) {
               depth={1.25}
               expanded={expanded}
               toggle={toggle}
-              label={`Season ${se.seasonNumber}`}
+              label={seasonLabel(se)}
               meta={<Badge variant="secondary">{plural(se.totalEpisodes, 'episode')}</Badge>}
               action={{ label: 'Episode', onClick: () => onCreateChild('episode', se.seasonId) }}
             >

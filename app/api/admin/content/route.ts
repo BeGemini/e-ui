@@ -21,6 +21,7 @@ interface SeasonRow {
   seasonId: string;
   seriesId: string;
   seasonNumber: number;
+  title: string | null;
   totalEpisodes: number;
 }
 interface EpisodeRow {
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     const [series, seasons, episodes, exercises] = await Promise.all([
       query<SeriesRow>('SELECT seriesId, title, difficulty, totalEpisodes FROM Series ORDER BY title'),
-      query<SeasonRow>('SELECT seasonId, seriesId, seasonNumber, totalEpisodes FROM Season ORDER BY seasonNumber'),
+      query<SeasonRow>('SELECT seasonId, seriesId, seasonNumber, title, totalEpisodes FROM Season ORDER BY seasonNumber'),
       query<EpisodeRow>(
         'SELECT episodeId, seasonId, episodeNumber, title, totalExercises FROM Episode ORDER BY episodeNumber'
       ),
@@ -76,6 +77,7 @@ export async function GET(request: NextRequest) {
         seasons: (seasonsBySeries.get(s.seriesId) ?? []).map<AdminSeasonNode>((se) => ({
           seasonId: se.seasonId,
           seasonNumber: se.seasonNumber,
+          title: se.title,
           totalEpisodes: se.totalEpisodes,
           episodes: (episodesBySeason.get(se.seasonId) ?? []).map<AdminEpisodeNode>((ep) => ({
             episodeId: ep.episodeId,

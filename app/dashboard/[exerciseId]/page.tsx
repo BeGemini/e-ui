@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { NotebookText } from 'lucide-react';
+import { ArrowLeft, Captions, History, NotebookText, Play } from 'lucide-react';
 
 export default function ExerciseDetailPage() {
   const router = useRouter();
@@ -114,25 +114,23 @@ export default function ExerciseDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <header className="border-b bg-white shadow">
-        <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6 lg:px-8">
-          <button
-            onClick={() => router.back()}
-            className="text-blue-600 hover:text-blue-700 text-sm font-medium mb-3"
-          >
-            ← Back
-          </button>
+    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-4xl space-y-6">
+        <header className="flex items-center justify-between gap-4">
           <h1 className="text-3xl font-bold text-gray-900">
             {exercise.title}
           </h1>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-        <Card className="p-8 mb-8">
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Back"
+            title="Back"
+            onClick={() => router.back()}
+          >
+            <ArrowLeft />
+          </Button>
+        </header>
+        <Card className="p-8">
           <div className="space-y-6">
             {/* Difficulty Badge */}
             <div>
@@ -208,39 +206,48 @@ export default function ExerciseDetailPage() {
               </div>
             )}
           </div>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleStartPractice}
+              size="icon"
+              aria-label="Start Practice"
+              title="Start Practice"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Play />
+            </Button>
+            <Button
+              onClick={handleCustomizeSubtitles}
+              variant="outline"
+              size="icon"
+              aria-label="Customize Subtitles"
+              title="Customize Subtitles"
+              className="border-gray-300 hover:bg-gray-100"
+            >
+              <Captions />
+            </Button>
+            <Button
+              onClick={handleViewHistory}
+              variant="outline"
+              size="icon"
+              aria-label="View History"
+              title="View History"
+              className="border-gray-300 hover:bg-gray-100"
+            >
+              <History />
+            </Button>
+            <Button
+              onClick={() => router.push(`/dashboard/${exerciseId}/sentences`)}
+              variant="outline"
+              size="icon"
+              aria-label="My Sentences"
+              title="My Sentences"
+              className="border-gray-300 hover:bg-gray-100"
+            >
+              <NotebookText />
+            </Button>
+          </div>
         </Card>
-
-        {/* Action Buttons */}
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button
-            onClick={handleStartPractice}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Start Practice
-          </Button>
-          <Button
-            onClick={handleCustomizeSubtitles}
-            variant="outline"
-            className="flex-1 border-gray-300 hover:bg-gray-100"
-          >
-            Customize Subtitles
-          </Button>
-          <Button
-            onClick={handleViewHistory}
-            variant="outline"
-            className="flex-1 border-gray-300 hover:bg-gray-100"
-          >
-            View History
-          </Button>
-          <Button
-            onClick={() => router.push(`/dashboard/${exerciseId}/sentences`)}
-            variant="outline"
-            className="flex-1 border-gray-300 hover:bg-gray-100"
-          >
-            <NotebookText />
-            My Sentences
-          </Button>
-        </div>
       </main>
     </div>
   );

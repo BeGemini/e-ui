@@ -141,6 +141,7 @@ export const AdminSeriesCreateSchema = z.object({
 export const AdminSeasonCreateSchema = z.object({
   seriesId: parentId('series'),
   seasonNumber: positiveInt('Season number'),
+  title: optionalText(255, 'Title'),
   description: optionalText(5000, 'Description'),
 });
 

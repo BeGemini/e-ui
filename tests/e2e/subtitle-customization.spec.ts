@@ -35,7 +35,7 @@ test.describe('Subtitle Customization Flow', () => {
     await expect(page.locator('h1')).toContainText('Desperate Housewives');
 
     // Click "Customize Subtitles" button
-    const customizeBtn = page.locator('button:has-text("Customize Subtitles")');
+    const customizeBtn = page.getByRole('button', { name: 'Customize Subtitles', exact: true });
     await expect(customizeBtn).toBeVisible();
     await customizeBtn.click();
 
@@ -53,7 +53,7 @@ test.describe('Subtitle Customization Flow', () => {
     const exerciseCard = page.locator('text=Desperate Housewives');
     await exerciseCard.click();
     await page.waitForURL(/\/dashboard\/.*/, { timeout: 5000 });
-    await page.click('button:has-text("Customize Subtitles")');
+    await page.getByRole('button', { name: 'Customize Subtitles', exact: true }).click();
     await page.waitForURL(/\/dashboard\/.*\/subtitles/, { timeout: 5000 });
 
     // Verify subtitle list is displayed
@@ -69,7 +69,7 @@ test.describe('Subtitle Customization Flow', () => {
     const exerciseCard = page.locator('text=Desperate Housewives');
     await exerciseCard.click();
     await page.waitForURL(/\/dashboard\/.*/, { timeout: 5000 });
-    await page.click('button:has-text("Customize Subtitles")');
+    await page.getByRole('button', { name: 'Customize Subtitles', exact: true }).click();
     await page.waitForURL(/\/dashboard\/.*\/subtitles/, { timeout: 5000 });
 
     // Verify Save button
@@ -92,7 +92,7 @@ test.describe('Subtitle Customization Flow', () => {
     const exerciseCard = page.locator('text=Desperate Housewives');
     await exerciseCard.click();
     await page.waitForURL(/\/dashboard\/.*/, { timeout: 5000 });
-    await page.click('button:has-text("Customize Subtitles")');
+    await page.getByRole('button', { name: 'Customize Subtitles', exact: true }).click();
     await page.waitForURL(/\/dashboard\/.*\/subtitles/, { timeout: 5000 });
 
     // Click Cancel button

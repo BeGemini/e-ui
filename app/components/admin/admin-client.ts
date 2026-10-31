@@ -47,7 +47,10 @@ export function seriesOptions(tree: AdminContentTree | null): OptionItem[] {
 
 export function seasonOptions(tree: AdminContentTree | null): OptionItem[] {
   return (tree?.series ?? []).flatMap((s) =>
-    s.seasons.map((se) => ({ value: se.seasonId, label: `${s.title} / S${se.seasonNumber}` }))
+    s.seasons.map((se) => ({
+      value: se.seasonId,
+      label: `${s.title} / S${se.seasonNumber}${se.title ? ` ${se.title}` : ''}`,
+    }))
   );
 }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import { SubtitleList } from '@/app/components/subtitle-editor/SubtitleList';
 import { MergeGroupEditor } from '@/app/components/subtitle-editor/MergeGroupEditor';
 import { SkipSentenceEditor } from '@/app/components/subtitle-editor/SkipSentenceEditor';
@@ -370,8 +371,14 @@ export default function SubtitleEditorPage() {
             <h1 className="text-3xl font-bold text-gray-900">Customize Subtitles</h1>
             <p className="text-gray-600 mt-1">Merge sentences or skip them during practice</p>
           </div>
-          <Button variant="outline" onClick={() => router.back()}>
-            Back
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Back"
+            title="Back"
+            onClick={() => router.back()}
+          >
+            <ArrowLeft />
           </Button>
         </div>
 
