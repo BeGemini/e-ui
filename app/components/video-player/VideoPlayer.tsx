@@ -319,18 +319,21 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
     onSentenceEnd(currentSubtitle.index, 'skip');
   };
 
-  const handleSliderChange = (value: number[]) => {
+  const handleSliderChange = (value: number | readonly number[]) => {
     const video = videoRef.current;
     if (!video) return;
 
+    const time = typeof value === 'number' ? value : value[0];
+    if (time === undefined) return;
+
     // Dragging outside the active sentence ends the bounded segment playback.
     const segment = segmentRef.current;
-    if (segment && (value[0] < segment.startSeconds || value[0] >= segment.endSeconds)) {
+    if (segment && (time < segment.startSeconds || time >= segment.endSeconds)) {
       segmentRef.current = null;
     }
 
-    video.currentTime = value[0];
-    setCurrentTime(value[0]);
+    video.currentTime = time;
+    setCurrentTime(time);
   };
 
   const formatTime = (seconds: number) => {
