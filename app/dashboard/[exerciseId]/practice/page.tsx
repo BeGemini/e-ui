@@ -8,7 +8,7 @@ import { DictationInput } from '@/app/components/dictation/DictationInput';
 import { WordFeedbackDisplay } from '@/app/components/dictation/WordFeedbackDisplay';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Captions, NotebookText } from 'lucide-react';
+import { BookOpen, Captions, NotebookText } from 'lucide-react';
 import type { KnowledgePoint, SaveAttemptRequest } from '@/lib/types';
 
 interface Subtitle {
@@ -385,6 +385,13 @@ export default function PracticePage() {
               >
                 <Captions />
                 Customize Subtitles
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/dashboard/${exerciseId}/knowledge-points`)}
+              >
+                <BookOpen />
+                Knowledge Points
               </Button>
               <Button
                 variant="outline"

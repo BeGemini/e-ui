@@ -23,7 +23,12 @@ export async function GET(
 
     // Fetch exercise
     const exercise = await queryOne<Exercise>(
-      'SELECT * FROM Exercise WHERE exerciseId = ?',
+      `SELECT e.*, COALESCE(e.difficulty, s.difficulty) AS difficulty
+       FROM Exercise e
+       LEFT JOIN Episode ep ON ep.episodeId = e.episodeId
+       LEFT JOIN Season sn ON sn.seasonId = ep.seasonId
+       LEFT JOIN Series s ON s.seriesId = sn.seriesId
+       WHERE e.exerciseId = ?`,
       [exerciseId]
     );
 
