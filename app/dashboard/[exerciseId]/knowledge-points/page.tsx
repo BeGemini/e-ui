@@ -2,9 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KnowledgePointList } from '@/app/components/knowledge-point-list/KnowledgePointList';
+import { useToast } from '@/hooks/use-toast';
+import { downloadBlob } from '@/lib/sentence-export';
+import { buildKnowledgePointExportFilename } from '@/lib/knowledge-point-export';
 import type { KnowledgePoint } from '@/lib/types';
 
 interface ExerciseInfo {
@@ -21,6 +25,26 @@ export default function KnowledgePointsPage() {
   const [exercise, setExercise] = useState<ExerciseInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const { toast } = useToast();
+
+  const handleExportPdf = async () => {
+    if (exporting || knowledgePoints.length === 0) return;
+    setExporting(true);
+    try {
+      // Literal path so the bundler splits react-pdf into a separate async chunk.
+      const mod = await import('@/lib/knowledge-point-export/build-pdf');
+      const exportedAt = new Date();
+      const title = exercise?.title ?? 'exercise';
+      const blob = await mod.build({ title, exportedAt, knowledgePoints });
+      downloadBlob(blob, buildKnowledgePointExportFilename(title, exportedAt));
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast({ title: 'Export failed. Please try again.', variant: 'destructive' });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const fetchKnowledgePoints = useCallback(async () => {
     try {
@@ -109,9 +133,20 @@ export default function KnowledgePointsPage() {
               <p className="text-sm text-gray-600 mt-1">{exercise.title}</p>
             )}
           </div>
-          <Button variant="outline" onClick={() => router.push('/dashboard')}>
-            Back to Dashboard
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleExportPdf}
+              disabled={exporting || knowledgePoints.length === 0}
+              aria-busy={exporting}
+            >
+              <Download className="h-4 w-4" />
+              {exporting ? 'Exporting…' : 'Export PDF'}
+            </Button>
+            <Button variant="outline" onClick={() => router.push('/dashboard')}>
+              Back to Dashboard
+            </Button>
+          </div>
         </div>
 
         {error && (

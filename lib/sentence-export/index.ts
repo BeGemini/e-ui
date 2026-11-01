@@ -36,8 +36,8 @@ export function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-/** Build `<title>-我的句子-YYYY-MM-DD.<ext>` with a filesystem-safe title. */
-export function buildExportFilename(title: string, ext: ExportFormat, date: Date): string {
+/** Make a title filesystem-safe: strip invalid characters, collapse whitespace, cap length. */
+export function sanitizeExportTitle(title: string): string {
   const cleaned = title
     .replace(/[\\/:*?"<>|\u0000-\u001F\u007F]/g, '')
     .replace(/\s+/g, ' ')
@@ -45,8 +45,12 @@ export function buildExportFilename(title: string, ext: ExportFormat, date: Date
     .slice(0, MAX_TITLE_LENGTH)
     .replace(/[.\s]+$/g, '');
 
-  const safeTitle = cleaned || 'exercise';
-  return `${safeTitle}-我的句子-${formatLocalDate(date)}.${ext}`;
+  return cleaned || 'exercise';
+}
+
+/** Build `<title>-我的句子-YYYY-MM-DD.<ext>` with a filesystem-safe title. */
+export function buildExportFilename(title: string, ext: ExportFormat, date: Date): string {
+  return `${sanitizeExportTitle(title)}-我的句子-${formatLocalDate(date)}.${ext}`;
 }
 
 /** True when the text contains CJK ideographs, CJK punctuation or full-width forms. */
