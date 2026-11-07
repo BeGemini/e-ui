@@ -99,9 +99,16 @@ export interface UserDictationAttempt {
 }
 
 export interface WordFeedback {
-  correctWord: string;
+  word: string;
   userWord: string;
-  status: 'correct' | 'acceptable' | 'wrong' | 'missing';
+  status: 'correct' | 'typo' | 'wrong';
+}
+
+export interface PracticeAttempt {
+  sentenceIndex: number;
+  userInput: string;
+  accuracy: number;
+  wordFeedback: WordFeedback[];
 }
 
 // ===== CONFIGURATION ENTITIES =====

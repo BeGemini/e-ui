@@ -8,7 +8,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { execute, query, queryOne } from '@/lib/db';
-import type { MySentence, UserExerciseProgress, WordFeedback } from '@/lib/types';
+import type { MySentence, PracticeAttempt, UserExerciseProgress, WordFeedback } from '@/lib/types';
 
 /**
  * Return the learner's progress row for an exercise, creating it on first use.
@@ -73,23 +73,18 @@ export async function upsertAttempt(params: UpsertAttemptParams): Promise<void> 
   );
 }
 
-interface MySentenceRow {
+interface AttemptRow {
   sentenceIndex: number;
   userInput: string | null;
   correctAnswer: string | null;
+  accuracy: number | string;
+  wordFeedback: WordFeedback[] | string | null;
   attemptDate: Date | string;
 }
 
-/**
- * List the current learner's saved sentences for an exercise, ascending by sentenceIndex.
- * Always filtered by the session user; never accepts another userId from the client.
- */
-export async function listMySentences(
-  userId: string,
-  exerciseId: string
-): Promise<MySentence[]> {
-  const rows = await query<MySentenceRow>(
-    `SELECT a.sentenceIndex, a.userInput, a.correctAnswer, a.attemptDate
+async function listLatestAttemptRows(userId: string, exerciseId: string): Promise<AttemptRow[]> {
+  return query<AttemptRow>(
+    `SELECT a.sentenceIndex, a.userInput, a.correctAnswer, a.accuracy, a.wordFeedback, a.attemptDate
      FROM UserDictationAttempt a
      JOIN UserExerciseProgress p ON p.progressId = a.progressId
      WHERE p.userId = ? AND p.exerciseId = ?
@@ -105,6 +100,43 @@ export async function listMySentences(
      ORDER BY a.sentenceIndex ASC`,
     [userId, exerciseId]
   );
+}
+
+function parseWordFeedback(value: AttemptRow['wordFeedback']): WordFeedback[] {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function listPracticeAttempts(
+  userId: string,
+  exerciseId: string
+): Promise<PracticeAttempt[]> {
+  const rows = await listLatestAttemptRows(userId, exerciseId);
+
+  return rows.map((row) => ({
+    sentenceIndex: Number(row.sentenceIndex),
+    userInput: row.userInput ?? '',
+    accuracy: Number(row.accuracy),
+    wordFeedback: parseWordFeedback(row.wordFeedback),
+  }));
+}
+
+/**
+ * List the current learner's saved sentences for an exercise, ascending by sentenceIndex.
+ * Always filtered by the session user; never accepts another userId from the client.
+ */
+export async function listMySentences(
+  userId: string,
+  exerciseId: string
+): Promise<MySentence[]> {
+  const rows = await listLatestAttemptRows(userId, exerciseId);
 
   return rows.map((row) => ({
     sentenceIndex: Number(row.sentenceIndex),

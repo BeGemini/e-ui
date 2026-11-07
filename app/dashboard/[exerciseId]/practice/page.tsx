@@ -9,7 +9,7 @@ import { WordFeedbackDisplay } from '@/app/components/dictation/WordFeedbackDisp
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, BookOpen, Captions, LayoutDashboard, NotebookText } from 'lucide-react';
-import type { KnowledgePoint, SaveAttemptRequest } from '@/lib/types';
+import type { KnowledgePoint, PracticeAttempt, SaveAttemptRequest, WordFeedback } from '@/lib/types';
 
 interface Subtitle {
   index: number;
@@ -33,12 +33,7 @@ interface PracticeData {
     overallAccuracy?: number;
   };
   knowledgePoints: KnowledgePoint[];
-}
-
-interface WordFeedback {
-  word: string;
-  userWord: string;
-  status: 'correct' | 'typo' | 'wrong';
+  attempts: PracticeAttempt[];
 }
 
 interface CheckResponse {
@@ -47,11 +42,16 @@ interface CheckResponse {
   wordFeedback: WordFeedback[];
 }
 
-// Same fields as SaveAttemptRequest; wordFeedback carries the /check response shape,
-// exactly as save-progress already does (stored as JSON).
-type SaveAttemptPayload = Omit<SaveAttemptRequest, 'wordFeedback'> & {
-  wordFeedback: WordFeedback[];
-};
+function getAttemptState(attempts: PracticeAttempt[], sentenceIndex: number) {
+  const attempt = attempts.find((item) => item.sentenceIndex === sentenceIndex);
+
+  return {
+    userInput: attempt?.userInput ?? '',
+    feedback: attempt
+      ? { accuracy: attempt.accuracy, wordFeedback: attempt.wordFeedback }
+      : null,
+  };
+}
 
 export default function PracticePage() {
   const params = useParams();
@@ -73,7 +73,7 @@ export default function PracticePage() {
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
 
   // Queue a background save of the checked sentence. Never rejects, never blocks the UI.
-  const enqueueSaveAttempt = (payload: SaveAttemptPayload) => {
+  const enqueueSaveAttempt = (payload: SaveAttemptRequest) => {
     saveChainRef.current = saveChainRef.current.then(async () => {
       try {
         const token = localStorage.getItem('token');
@@ -122,8 +122,13 @@ export default function PracticePage() {
         }
 
         const data = await response.json();
+        const sentenceIndex = data.data.userProgress?.currentSentenceIndex ?? 0;
+        const attemptState = getAttemptState(data.data.attempts ?? [], sentenceIndex);
+
         setPracticeData(data.data);
-        setCurrentSentenceIndex(data.data.userProgress?.currentSentenceIndex ?? 0);
+        setCurrentSentenceIndex(sentenceIndex);
+        setUserInput(attemptState.userInput);
+        setCurrentFeedback(attemptState.feedback);
       } catch (error) {
         toast({
           title: 'Error',
@@ -156,6 +161,16 @@ export default function PracticePage() {
   const totalSentences = practiceData?.totalSentences ?? practiceData?.subtitles.length ?? 0;
 
   const currentSubtitle = getCurrentSubtitle();
+
+  const cacheAttempt = (attempt: PracticeAttempt) => {
+    setPracticeData((current) => current ? {
+      ...current,
+      attempts: [
+        ...current.attempts.filter((item) => item.sentenceIndex !== attempt.sentenceIndex),
+        attempt,
+      ],
+    } : current);
+  };
 
   // Handle checking accuracy
   const handleCheckAccuracy = async () => {
@@ -192,6 +207,12 @@ export default function PracticePage() {
 
       const feedback: CheckResponse = await response.json();
       setCurrentFeedback(feedback);
+      cacheAttempt({
+        sentenceIndex: currentSubtitle.index,
+        userInput: userInput.trim(),
+        accuracy: feedback.accuracy,
+        wordFeedback: feedback.wordFeedback,
+      });
 
       // Save in the background after showing feedback; does not advance the sentence.
       enqueueSaveAttempt({
@@ -242,9 +263,10 @@ export default function PracticePage() {
       // Exercise completed
       handleExerciseComplete(completedIndex);
     } else {
+      const attemptState = getAttemptState(practiceData.attempts, nextIndex);
       setCurrentSentenceIndex(nextIndex);
-      setUserInput('');
-      setCurrentFeedback(null);
+      setUserInput(attemptState.userInput);
+      setCurrentFeedback(attemptState.feedback);
       // Auto-play the next sentence so the user can listen immediately.
       // A small timeout ensures the player has rendered with the new index.
       setTimeout(() => {
@@ -254,13 +276,14 @@ export default function PracticePage() {
   };
 
   const handlePreviousSentence = () => {
-    if (currentSentenceIndex <= 0 || isSavingProgress || isCheckingAccuracy) return;
+    if (currentSentenceIndex <= 0 || isSavingProgress || isCheckingAccuracy || !practiceData) return;
 
     // Client-only navigation: intentionally does NOT call saveProgress (FR-007).
     const prev = currentSentenceIndex - 1;
+    const attemptState = getAttemptState(practiceData.attempts, prev);
     setCurrentSentenceIndex(prev);
-    setUserInput('');
-    setCurrentFeedback(null);
+    setUserInput(attemptState.userInput);
+    setCurrentFeedback(attemptState.feedback);
     setTimeout(() => {
       videoPlayerRef.current?.playSentenceAtIndex(prev);
     }, 0);
@@ -298,6 +321,12 @@ export default function PracticePage() {
         throw new Error('Failed to save progress');
       }
 
+      cacheAttempt({
+        sentenceIndex,
+        userInput: userInput.trim(),
+        accuracy,
+        wordFeedback: currentFeedback?.wordFeedback ?? [],
+      });
       await advanceToNextSentence(sentenceIndex);
     } catch (error) {
       toast({

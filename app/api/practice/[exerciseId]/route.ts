@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { RowDataPacket } from 'mysql2/promise';
 import { verifySessionFromRequest } from '@/lib/session';
 import { initializeDatabase, query, queryOne, execute } from '@/lib/db';
-import { Exercise, UserSubtitleConfig, ParsedSubtitle, EffectiveSubtitle, UserExerciseProgress, KnowledgePoint } from '@/lib/types';
+import { Exercise, UserSubtitleConfig, ParsedSubtitle, EffectiveSubtitle, UserExerciseProgress, KnowledgePoint, PracticeAttempt } from '@/lib/types';
 import { downloadFile } from '@/lib/cos-client';
 import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
 import { applySubtitleConfig, SubtitleConfigInput } from '@/lib/utils';
+import { listPracticeAttempts } from '@/lib/dictation-attempts';
 
 interface ExerciseWithSubtitles extends Exercise {
   videoUrl: string;
@@ -16,6 +17,7 @@ interface ExerciseWithSubtitles extends Exercise {
     isCompleted: boolean;
   } | null;
   knowledgePoints: KnowledgePoint[];
+  attempts: PracticeAttempt[];
 }
 
 export async function GET(
@@ -164,6 +166,7 @@ export async function GET(
         isCompleted: false,
       },
       knowledgePoints,
+      attempts: await listPracticeAttempts(session.userId, exerciseId),
     };
 
     return NextResponse.json(

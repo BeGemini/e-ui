@@ -283,11 +283,6 @@ export default function SubtitleEditorPage() {
         title: 'Success',
         description: 'Subtitle configuration saved. Changes apply to next playback.',
       });
-
-      // Return to exercise detail page
-      setTimeout(() => {
-        router.push(`/dashboard/${exerciseId}`);
-      }, 1500);
     } catch (error) {
       toast({
         title: 'Error',
