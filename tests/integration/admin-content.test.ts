@@ -49,6 +49,7 @@ const adminEndpoints: [string, unknown][] = [
   ['/api/admin/seasons', {}],
   ['/api/admin/episodes', {}],
   ['/api/admin/exercises/probe', { videoUrl: 'a.mp4', subtitleUrl: 'a.srt' }],
+  ['/api/admin/exercises/fetch-ted', { url: 'https://www.ted.com/talks/example' }],
   ['/api/admin/exercises', {}],
 ];
 

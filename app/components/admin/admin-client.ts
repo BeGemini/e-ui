@@ -6,7 +6,10 @@ export interface AdminFetchResult<T> {
   data: T;
 }
 
-export async function adminFetch<T>(path: string, init?: { method?: string; body?: unknown }): Promise<AdminFetchResult<T>> {
+export async function adminFetch<T>(
+  path: string,
+  init?: { method?: string; body?: unknown; signal?: AbortSignal }
+): Promise<AdminFetchResult<T>> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const res = await fetch(path, {
     method: init?.method ?? 'GET',
@@ -15,6 +18,7 @@ export async function adminFetch<T>(path: string, init?: { method?: string; body
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: init?.body === undefined ? undefined : JSON.stringify(init.body),
+    signal: init?.signal,
   });
   const data = (await res.json().catch(() => ({}))) as T;
   return { ok: res.ok, status: res.status, data };

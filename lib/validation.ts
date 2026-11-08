@@ -162,3 +162,20 @@ export const AdminExerciseCreateSchema = AdminExerciseProbeSchema.extend({
   title: requiredText(255, 'Title'),
   difficulty: DifficultySchema.nullish(),
 });
+
+export const AdminExerciseFetchTedSchema = z.object({
+  url: requiredText(2000, 'TED Talk URL').refine((value) => {
+    try {
+      const url = new URL(value);
+      return (
+        url.protocol === 'https:' &&
+        url.hostname === 'www.ted.com' &&
+        url.username === '' &&
+        url.password === '' &&
+        /^\/talks\/[^/]+\/?$/.test(url.pathname)
+      );
+    } catch {
+      return false;
+    }
+  }, 'Enter a valid TED Talk URL'),
+});

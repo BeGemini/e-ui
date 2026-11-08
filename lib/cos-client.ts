@@ -4,6 +4,7 @@
  */
 
 import COS from 'cos-nodejs-sdk-v5';
+import type { Stream } from 'node:stream';
 import type { CosConfig } from './types';
 
 let cosClient: COS | null = null;
@@ -67,13 +68,16 @@ export function getRegion(): string {
 /**
  * Upload a file to COS
  * @param key - File path in COS (e.g., "videos/episode-1.mp4")
- * @param fileContent - File content (Buffer or string)
+ * @param fileContent - File content (Buffer, string or stream)
+ * @param contentType - Optional MIME type stored with the object
  * @returns Full COS URL
  */
 export async function uploadFile(
   key: string,
-  fileContent: Buffer | string
+  fileContent: Buffer | string | Stream,
+  contentType?: string
 ): Promise<string> {
+  initializeCosClient();
   const client = getCosClient();
   const bucket = getBucketName();
   const region = getRegion();
@@ -85,6 +89,7 @@ export async function uploadFile(
         Region: region,
         Key: key,
         Body: fileContent,
+        ContentType: contentType,
       },
       (err) => {
         if (err) {

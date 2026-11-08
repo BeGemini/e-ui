@@ -10,6 +10,7 @@
 - Node.js 18+ 和 npm
 - MySQL 8.0+
 - Git
+- ffmpeg（TED Talks 采集功能需要）
 - （推荐）PM2 进程管理器
 
 ### 2. 安装基础软件（以 Ubuntu 为例）
@@ -36,6 +37,10 @@ sudo mysql_secure_installation
 
 # 安装 PM2（强烈推荐）
 sudo npm install -g pm2
+
+# 安装并验证 TED Talks 采集所需的 ffmpeg
+sudo apt install -y ffmpeg
+ffmpeg -version
 ```
 
 ### 3. 创建数据库和用户
@@ -176,6 +181,17 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
+    }
+
+    # TED 视频下载、转封装和上传可能持续较长时间。
+    location = /api/admin/exercises/fetch-ted {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
     }
 }
 ```

@@ -577,3 +577,46 @@ export interface AdminExerciseCreateResponse {
   exerciseId: string;
   probe: ExerciseProbeResult;
 }
+
+export type TedFetchStatus = 'idle' | 'fetching' | 'success' | 'error';
+
+export type TedFetchErrorCode =
+  | 'INVALID_URL'
+  | 'TALK_NOT_FOUND'
+  | 'VIDEO_UNAVAILABLE'
+  | 'ENGLISH_SUBTITLES_UNAVAILABLE'
+  | 'FFMPEG_UNAVAILABLE'
+  | 'MEDIA_CONVERSION_FAILED'
+  | 'STORAGE_UPLOAD_FAILED'
+  | 'RESOURCE_VALIDATION_FAILED'
+  | 'UPSTREAM_FETCH_FAILED'
+  | 'TIMEOUT';
+
+export interface TedFetchRequest {
+  url: string;
+}
+
+export interface TedTalkSource {
+  url: string;
+  slug: string;
+  tedId: string;
+  title: string;
+  canonicalUrl?: string;
+}
+
+export interface TedMediaResources {
+  hlsStreamUrl: string;
+  hlsMetadataUrl: string;
+  englishVttUrl: string;
+  durationSeconds?: number;
+}
+
+export interface TedFetchSuccessResponse {
+  videoUrl: string;
+  subtitleUrl: string;
+  probe: ExerciseProbeResult;
+}
+
+export interface TedFetchErrorResponse extends AdminErrorResponse {
+  code?: TedFetchErrorCode;
+}
