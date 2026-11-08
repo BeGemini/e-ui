@@ -594,6 +594,8 @@ export type TedFetchErrorCode =
 
 export interface TedFetchRequest {
   url: string;
+  /** When false, the video stays on TED's CDN and only subtitles are saved to COS. Defaults to true. */
+  uploadToCos?: boolean;
 }
 
 export interface TedTalkSource {

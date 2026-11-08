@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
+import Hls from 'hls.js';
 import { Play, Pause, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { isExternalVideoUrl, isHlsVideoUrl } from '@/lib/utils';
 
 export const PLAYBACK_RATES = [0.25, 0.5, 1, 1.25, 1.5] as const;
 export type PlaybackRate = (typeof PLAYBACK_RATES)[number];
@@ -140,17 +142,44 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
   }), [subtitles, playSegment]);
 
   // Add token to video URL. Reading localStorage must happen in an effect
-  // to avoid SSR/hydration mismatches.
+  // to avoid SSR/hydration mismatches. Externally hosted videos (e.g. TED HLS
+  // streams) are used as-is — they don't go through the authenticated proxy.
   useEffect(() => {
+    if (isExternalVideoUrl(videoUrl)) {
+      setVideoUrlWithToken(videoUrl);
+      return;
+    }
     const token = localStorage.getItem('token');
     if (videoUrl && token) {
       const urlWithToken = `${videoUrl}?token=${encodeURIComponent(token)}`;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVideoUrlWithToken(urlWithToken);
     } else {
       setVideoUrlWithToken(videoUrl);
     }
   }, [videoUrl]);
+
+  // HLS sources (e.g. TED streams) need hls.js except where the browser plays
+  // HLS natively (Safari). The decision is made at render time: while MSE is in
+  // use the <video> src stays unset from the very first frame, because removing
+  // a React-managed src after hls.js attached its MediaSource would reset the
+  // media element and detach the stream. The video element only renders after
+  // the client-only token effect anyway, so reading window here is safe.
+  const isHlsSource = isHlsVideoUrl(videoUrlWithToken);
+  const useMse = isHlsSource && typeof window !== 'undefined' && Hls.isSupported();
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !useMse) return;
+    const hls = new Hls({
+      // A dictation player seeks sentence-by-sentence: keep some already-played
+      // buffer so "previous sentence" replays don't refetch segments, and don't
+      // pull 1080p for a small player.
+      backBufferLength: 30,
+      capLevelToPlayerSize: true,
+    });
+    hls.loadSource(videoUrlWithToken);
+    hls.attachMedia(video);
+    return () => hls.destroy();
+  }, [videoUrlWithToken, useMse]);
 
   // Re-run when the <video> element first mounts (videoUrlWithToken becomes non-empty).
   useEffect(() => {
@@ -349,7 +378,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
         {videoUrlWithToken ? (
           <video
             ref={videoRef}
-            src={videoUrlWithToken}
+            src={useMse ? undefined : videoUrlWithToken}
             className="w-full rounded-lg bg-black"
             crossOrigin="anonymous"
             onLoadStart={() => {

@@ -5,7 +5,7 @@ import { initializeDatabase, query, queryOne, execute } from '@/lib/db';
 import { Exercise, UserSubtitleConfig, ParsedSubtitle, EffectiveSubtitle, UserExerciseProgress, KnowledgePoint, PracticeAttempt } from '@/lib/types';
 import { downloadFile } from '@/lib/cos-client';
 import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
-import { applySubtitleConfig, SubtitleConfigInput } from '@/lib/utils';
+import { applySubtitleConfig, isExternalVideoUrl, SubtitleConfigInput } from '@/lib/utils';
 import { listPracticeAttempts } from '@/lib/dictation-attempts';
 
 interface ExerciseWithSubtitles extends Exercise {
@@ -57,8 +57,11 @@ export async function GET(
     }
 
     // Generate proxy URL for video with auth token
-    // Client will add token query parameter when fetching
-    const videoUrl = `/api/video/${exercise.videoUrl}`;
+    // Client will add token query parameter when fetching.
+    // Externally hosted videos (e.g. TED HLS streams) are used as-is.
+    const videoUrl = isExternalVideoUrl(exercise.videoUrl)
+      ? exercise.videoUrl
+      : `/api/video/${exercise.videoUrl}`;
 
     // Fetch subtitles from COS
     let subtitles: ParsedSubtitle[] = [];

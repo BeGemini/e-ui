@@ -178,4 +178,5 @@ export const AdminExerciseFetchTedSchema = z.object({
       return false;
     }
   }, 'Enter a valid TED Talk URL'),
+  uploadToCos: z.boolean().optional().default(true),
 });

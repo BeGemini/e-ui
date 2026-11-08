@@ -62,6 +62,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
 
   const [activeTab, setActiveTab] = useState('manual');
   const [tedUrl, setTedUrl] = useState('');
+  const [tedUploadToCos, setTedUploadToCos] = useState(true);
   const [tedStatus, setTedStatus] = useState<TedFetchStatus>('idle');
   const [tedError, setTedError] = useState('');
   const tedController = useRef<AbortController | null>(null);
@@ -134,7 +135,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
   const fetchTed = async () => {
     if (tedStatus === 'fetching') return;
     setFormError('');
-    const check = AdminExerciseFetchTedSchema.safeParse({ url: tedUrl });
+    const check = AdminExerciseFetchTedSchema.safeParse({ url: tedUrl, uploadToCos: tedUploadToCos });
     if (!check.success) {
       setFieldErrors((prev) => ({ ...prev, ...z.flattenError(check.error).fieldErrors }));
       return;
@@ -151,7 +152,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
     try {
       const res = await adminFetch<TedApiResponse>('/api/admin/exercises/fetch-ted', {
         method: 'POST',
-        body: { url: check.data.url },
+        body: { url: check.data.url, uploadToCos: check.data.uploadToCos },
         signal: controller.signal,
       });
       if (!mounted.current || operation !== tedOperation.current) return;
@@ -340,6 +341,17 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
                   />
                 )}
               </FormField>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="exercise-ted-upload-to-cos"
+                  checked={tedUploadToCos}
+                  onCheckedChange={(checked) => setTedUploadToCos(checked === true)}
+                  disabled={saving || tedStatus === 'fetching'}
+                />
+                <Label htmlFor="exercise-ted-upload-to-cos">
+                  Upload video to COS (uncheck to stream directly from TED)
+                </Label>
+              </div>
               <Button type="button" variant="outline" onClick={fetchTed} disabled={tedStatus === 'fetching' || saving || probing}>
                 {tedStatus === 'fetching' && <Loader2 className="animate-spin" aria-hidden="true" />}
                 {tedStatus === 'fetching' ? 'Fetching TED Talk…' : tedStatus === 'error' ? 'Retry fetch' : 'Fetch video & subtitles'}
@@ -348,14 +360,22 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
               {tedStatus === 'idle' && (
                 <Alert aria-live="polite">
                   <AlertTitle>Ready to fetch</AlertTitle>
-                  <AlertDescription>The video and its English subtitles will be saved to COS for this draft.</AlertDescription>
+                  <AlertDescription>
+                    {tedUploadToCos
+                      ? 'The video and its English subtitles will be saved to COS for this draft.'
+                      : 'Only the English subtitles will be saved to COS. The video will stream directly from TED.'}
+                  </AlertDescription>
                 </Alert>
               )}
               {tedStatus === 'fetching' && (
                 <Alert aria-live="polite" aria-busy="true">
                   <Loader2 className="animate-spin" aria-hidden="true" />
                   <AlertTitle>Fetching TED media</AlertTitle>
-                  <AlertDescription>This can take up to 5 minutes. Keep this dialog open.</AlertDescription>
+                  <AlertDescription>
+                    {tedUploadToCos
+                      ? 'This can take up to 5 minutes. Keep this dialog open.'
+                      : 'This usually takes a few seconds. Keep this dialog open.'}
+                  </AlertDescription>
                 </Alert>
               )}
               {tedStatus === 'error' && (

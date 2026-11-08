@@ -16,6 +16,7 @@ import {
   normalizeCosKey,
   parseMvhdDuration,
   probeExercise,
+  probeExternalHlsVideo,
   probeSubtitle,
   probeVideo,
   scanChunk,
@@ -213,6 +214,73 @@ describe('probeSubtitle', () => {
   });
 });
 
+describe('probeExternalHlsVideo', () => {
+  const MASTER_URL = 'https://hls.ted.com/project_masters/3289/manifest.m3u8?intro_master_id=9294';
+  const master = [
+    '#EXTM3U',
+    '#EXT-X-STREAM-INF:BANDWIDTH=1021081,RESOLUTION=854x480',
+    'index-f9-v1.m3u8?intro_master_id=9294',
+    '',
+  ].join('\n');
+  const variant = [
+    '#EXTM3U',
+    '#EXT-X-TARGETDURATION:6',
+    '#EXT-X-PLAYLIST-TYPE:VOD',
+    '#EXTINF:3.5040,',
+    'https://pu.tedcdn.com/consus/videos/9294/segment-1-f9-v1.ts',
+    '#EXTINF:6.0060,',
+    'https://pu.tedcdn.com/consus/videos/3289/segment-1-f9-v1.ts',
+    '#EXT-X-ENDLIST',
+    '',
+  ].join('\n');
+
+  function mockPlaylists() {
+    const fetchMock = jest.fn(async (url: unknown) =>
+      new Response(String(url).includes('index-f9-v1') ? variant : master, { status: 200 })
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+    return fetchMock;
+  }
+
+  it('sums EXTINF durations from the first variant playlist', async () => {
+    const fetchMock = mockPlaylists();
+    const result = await probeExternalHlsVideo(MASTER_URL);
+    expect(result).toEqual({ key: MASTER_URL, ok: true, durationSeconds: 10 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('parses a media playlist directly when it has no variants', async () => {
+    global.fetch = jest.fn(async () => new Response(variant, { status: 200 })) as unknown as typeof fetch;
+    const result = await probeExternalHlsVideo('https://hls.ted.com/project_masters/3289/index-f9-v1.m3u8');
+    expect(result.ok).toBe(true);
+    expect(result.durationSeconds).toBe(10);
+  });
+
+  it('rejects non-m3u8 URLs without network access', async () => {
+    const fetchMock = mockPlaylists();
+    const result = await probeExternalHlsVideo('https://hls.ted.com/videos/talk.mp4');
+    expect(result.error?.code).toBe('UNSUPPORTED_EXTENSION');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('requires https', async () => {
+    const result = await probeExternalHlsVideo('http://hls.ted.com/project_masters/3289/manifest.m3u8');
+    expect(result.error?.code).toBe('INVALID_KEY');
+  });
+
+  it('maps 404 to NOT_FOUND', async () => {
+    global.fetch = jest.fn(async () => new Response(null, { status: 404 })) as unknown as typeof fetch;
+    const result = await probeExternalHlsVideo(MASTER_URL);
+    expect(result.error?.code).toBe('NOT_FOUND');
+  });
+
+  it('reports DURATION_UNREADABLE when the playlist has no EXTINF entries', async () => {
+    global.fetch = jest.fn(async () => new Response('#EXTM3U\n', { status: 200 })) as unknown as typeof fetch;
+    const result = await probeExternalHlsVideo(MASTER_URL);
+    expect(result.error?.code).toBe('DURATION_UNREADABLE');
+  });
+});
+
 describe('probeExercise', () => {
   it('warns when subtitles run past the video end', async () => {
     mockFetchWithFile(Buffer.concat([ftyp, box('moov', mvhdV0(1, 5))]));
@@ -229,5 +297,21 @@ describe('probeExercise', () => {
     expect(result.ok).toBe(false);
     expect(result.video.error?.code).toBe('NOT_FOUND');
     expect(result.subtitle.error?.code).toBe('FOREIGN_HOST');
+  });
+
+  it('probes externally hosted HLS videos alongside COS subtitles', async () => {
+    const variant = '#EXTM3U\n#EXTINF:9.51,\nseg.ts\n#EXT-X-ENDLIST\n';
+    global.fetch = jest.fn(async () => new Response(variant, { status: 200 })) as unknown as typeof fetch;
+    mockedDownload.mockResolvedValue(Buffer.from('1\n00:00:01,000 --> 00:00:02,000\nHi\n', 'utf-8'));
+    const result = await probeExercise(
+      'https://hls.ted.com/project_masters/3289/manifest.m3u8?intro_master_id=9294',
+      'a.srt'
+    );
+    expect(result.ok).toBe(true);
+    expect(result.video).toEqual({
+      key: 'https://hls.ted.com/project_masters/3289/manifest.m3u8?intro_master_id=9294',
+      ok: true,
+      durationSeconds: 10,
+    });
   });
 });

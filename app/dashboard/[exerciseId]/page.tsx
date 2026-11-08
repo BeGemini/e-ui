@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Captions, History, NotebookText, Play } from 'lucide-react';
+import { isExternalVideoUrl } from '@/lib/utils';
 
 export default function ExerciseDetailPage() {
   const router = useRouter();
@@ -161,7 +162,9 @@ export default function ExerciseDetailPage() {
                   <p className="text-sm font-medium text-gray-500">
                     Video Format
                   </p>
-                  <p className="text-gray-900">MP4/WebM</p>
+                  <p className="text-gray-900">
+                    {isExternalVideoUrl(exercise.videoUrl) ? 'HLS (TED)' : 'MP4/WebM'}
+                  </p>
                 </div>
               )}
               {exercise.subtitleFormat && (

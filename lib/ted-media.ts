@@ -95,24 +95,35 @@ function safePart(value: string, fallback: string): string {
   return normalized || fallback;
 }
 
+export interface TedUploadOptions {
+  /** When false, the video stays on TED's CDN (the stored videoUrl is the HLS
+   *  stream link) and only subtitles are uploaded to COS. Defaults to true. */
+  uploadVideoToCos?: boolean;
+}
+
 export async function uploadTedTalkAssets(
   { source, resources, subtitleContent }: TedTalkAssets,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  { uploadVideoToCos = true }: TedUploadOptions = {}
 ): Promise<TedFetchSuccessResponse> {
-  await assertFfmpegAvailable(signal);
+  if (uploadVideoToCos) await assertFfmpegAvailable(signal);
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'e-ui-ted-'));
   const outputPath = join(temporaryDirectory, 'talk.mp4');
   const prefix = `TED/${safePart(source.tedId, 'talk')}-${safePart(source.slug, 'talk')}/${randomUUID()}`;
-  const videoUrl = `${prefix}.mp4`;
   const subtitleUrl = `${prefix}.vtt`;
+  const videoUrl = uploadVideoToCos ? `${prefix}.mp4` : resources.hlsStreamUrl;
   const uploadedKeys: string[] = [];
 
   try {
-    await convertToMp4(resources.hlsStreamUrl, outputPath, signal);
-    signal?.throwIfAborted();
+    if (uploadVideoToCos) {
+      await convertToMp4(resources.hlsStreamUrl, outputPath, signal);
+      signal?.throwIfAborted();
+    }
     try {
-      await uploadFile(videoUrl, createReadStream(outputPath), 'video/mp4');
-      uploadedKeys.push(videoUrl);
+      if (uploadVideoToCos) {
+        await uploadFile(videoUrl, createReadStream(outputPath), 'video/mp4');
+        uploadedKeys.push(videoUrl);
+      }
       await uploadFile(subtitleUrl, subtitleContent, 'text/vtt; charset=utf-8');
       uploadedKeys.push(subtitleUrl);
     } catch {

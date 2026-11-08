@@ -308,16 +308,93 @@ export async function probeVideo(key: string): Promise<VideoProbe> {
   }
 }
 
+// ===== External video probing (HLS playlists) =====
+
+export function parseHlsDuration(playlist: string): number | null {
+  let total = 0;
+  let found = false;
+  for (const line of playlist.split('\n')) {
+    const match = /^#EXTINF:([\d.]+)/.exec(line.trim());
+    if (match) {
+      total += Number(match[1]);
+      found = true;
+    }
+  }
+  return found ? total : null;
+}
+
+function pickVariantUri(master: string): string | null {
+  const lines = master.split('\n').map((line) => line.trim());
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('#EXT-X-STREAM-INF')) {
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j] && !lines[j].startsWith('#')) return lines[j];
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
+async function fetchPlaylist(url: string, signal: AbortSignal): Promise<string> {
+  const response = await fetch(url, { cache: 'no-store', signal });
+  if (response.status === 404) throw new ProbeError('NOT_FOUND', 'External video not found');
+  if (!response.ok) throw new ProbeError('FETCH_FAILED', `Could not read external video (HTTP ${response.status})`);
+  return response.text();
+}
+
+async function readHlsDuration(url: string): Promise<number | null> {
+  const signal = AbortSignal.timeout(PROBE_TIMEOUT_MS);
+  const playlist = await fetchPlaylist(url, signal);
+  const variantUri = pickVariantUri(playlist);
+  if (variantUri !== null) {
+    const variantPlaylist = await fetchPlaylist(new URL(variantUri, url).toString(), signal);
+    return parseHlsDuration(variantPlaylist);
+  }
+  return parseHlsDuration(playlist);
+}
+
+export async function probeExternalHlsVideo(input: string): Promise<VideoProbe> {
+  let url: URL;
+  try {
+    url = new URL(input.trim());
+  } catch {
+    return { key: input, ok: false, error: issue('INVALID_KEY', 'Invalid URL') };
+  }
+  if (url.protocol !== 'https:') {
+    return { key: input, ok: false, error: issue('INVALID_KEY', 'External video must use an https link') };
+  }
+  if (!/\.m3u8$/i.test(url.pathname)) {
+    return { key: input, ok: false, error: issue('UNSUPPORTED_EXTENSION', 'External video must be an HLS (.m3u8) stream') };
+  }
+
+  try {
+    const seconds = await readHlsDuration(url.toString());
+    if (seconds === null) {
+      throw new ProbeError('DURATION_UNREADABLE', 'Could not read video duration from the HLS playlist');
+    }
+    return { key: url.toString(), ok: true, durationSeconds: Math.round(seconds) };
+  } catch (error) {
+    return { key: input, ok: false, error: toIssue(error, 'FETCH_FAILED', 'Could not read external video stream') };
+  }
+}
+
 // ===== Combined =====
 
 export async function probeExercise(videoInput: string, subtitleInput: string): Promise<ExerciseProbeResult> {
   const videoKey = normalizeCosKey(videoInput);
   const subtitleKey = normalizeCosKey(subtitleInput);
 
+  // A foreign http(s) host means the video is externally hosted (e.g. a TED HLS
+  // stream) rather than an object in this project's COS bucket.
+  const externalVideo = !videoKey.ok && videoKey.error?.code === 'FOREIGN_HOST';
+
   const [video, subtitle] = await Promise.all([
     videoKey.ok
       ? probeVideo(videoKey.key)
-      : Promise.resolve<VideoProbe>({ key: videoInput, ok: false, error: videoKey.error }),
+      : externalVideo
+        ? probeExternalHlsVideo(videoInput)
+        : Promise.resolve<VideoProbe>({ key: videoInput, ok: false, error: videoKey.error }),
     subtitleKey.ok
       ? probeSubtitle(subtitleKey.key)
       : Promise.resolve<SubtitleProbe>({ key: subtitleInput, ok: false, error: subtitleKey.error }),
