@@ -131,9 +131,9 @@ Technical Context 中没有遗留 NEEDS CLARIFICATION。下面的结论基于对
 
 ## R8. 文件名、日期与下载
 
-- **Decision**：`lib/sentence-export/filename.ts#buildExportFilename(title, ext, now)` 生成 `<标题>-我的句子-YYYY-MM-DD.<ext>`，与 spec FR-014 的示例完全一致，日期取用户本地时区。标题会经过清洗：去掉 `\ / : * ? " < > |` 和控制字符，合并空白，去掉首尾的点和空格，截断到 80 个字符；如果清洗后为空，回退为 `exercise`。下载通过 `URL.createObjectURL(blob)` 加上临时 `<a download>` 触发，之后 `revokeObjectURL`。这个 `<a>` 只用于触发下载，不是页面 UI 元素。
+- **Decision**：`lib/sentence-export/filename.ts#buildExportFilename(title, ext, now)` 生成 `<标题>-YYYY-MM-DD.<ext>`，与 spec FR-014 的示例完全一致，日期取用户本地时区。标题会经过清洗：去掉 `\ / : * ? " < > |` 和控制字符，合并空白，去掉首尾的点和空格，截断到 80 个字符；如果清洗后为空，回退为 `exercise`。下载通过 `URL.createObjectURL(blob)` 加上临时 `<a download>` 触发，之后 `revokeObjectURL`。这个 `<a>` 只用于触发下载，不是页面 UI 元素。
 - **Rationale**：只用浏览器原生 API 即可，不需要引入 `file-saver`（章程 VI）。文件名清洗逻辑是纯函数，方便单元测试。
-- **导出文档文案**：与界面一致使用英文，包括 `My Sentences`、`Exported on YYYY-MM-DD`、`Sentence N`、`(Skipped)`、`Original`。只有文件名按 spec 示例使用“我的句子”。
+- **导出文档文案**：与界面一致使用英文，包括 `My Sentences`、`Exported on YYYY-MM-DD`、`Sentence N`、`(Skipped)`、`Original`。
 
 ## R9. 测试策略
 

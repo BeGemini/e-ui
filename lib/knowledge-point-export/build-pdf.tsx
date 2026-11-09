@@ -4,7 +4,8 @@
  * Descriptions are markdown, parsed with remark-parse (CommonMark, same subset that
  * react-markdown renders in the UI) and converted to @react-pdf/renderer elements.
  *
- * Uses Noto Sans (Latin) or Noto Sans SC (when any text contains CJK) from /public/fonts.
+ * Uses Noto Sans (Latin) from /public/fonts, falling back to Noto Sans SC per glyph
+ * for CJK text (Noto Sans SC lacks IPA glyphs used by phonetics).
  */
 
 import type { ReactNode } from 'react';
@@ -202,7 +203,9 @@ function KnowledgePointsPdf({ title, exportedAt, knowledgePoints }: KnowledgePoi
   const hasCjk =
     containsCjk(title) ||
     knowledgePoints.some((kp) => containsCjk(kp.capturedText) || containsCjk(kp.description));
-  const fontFamily = hasCjk ? FONT_CJK : FONT_LATIN;
+  // NotoSansSC has no IPA glyphs (phonetics like /krɪˈeɪʃn/ render as garbage), so keep
+  // NotoSans first and let CJK characters fall back to NotoSansSC per glyph.
+  const fontFamily = hasCjk ? [FONT_LATIN, FONT_CJK] : FONT_LATIN;
   const groups = groupByCategory(knowledgePoints);
 
   return (

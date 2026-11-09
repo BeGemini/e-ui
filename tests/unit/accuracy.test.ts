@@ -105,6 +105,17 @@ describe('Accuracy Checker', () => {
     ]);
   });
 
+  it('should treat curly and straight apostrophes as equivalent', () => {
+    const result = checkAccuracy(
+      "We feel grateful but don't express it.",
+      'We feel grateful but don’t express it.'
+    );
+    expect(result.accuracy).toBe(100);
+    result.wordFeedback.forEach((feedback) => {
+      expect(feedback.status).toBe('correct');
+    });
+  });
+
   it('should handle punctuation', () => {
     const result = checkAccuracy('hello, world!', 'hello world');
     // Depending on implementation, might strip punctuation

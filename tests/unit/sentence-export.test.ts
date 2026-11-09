@@ -15,40 +15,40 @@ import { build, createDocument } from '@/lib/sentence-export/build-docx';
 describe('buildExportFilename', () => {
   const date = new Date(2026, 9, 31);
 
-  it('builds <title>-我的句子-YYYY-MM-DD.<ext>', () => {
+  it('builds <title>-YYYY-MM-DD.<ext>', () => {
     expect(buildExportFilename('S01E01 – Pilot', 'docx', date)).toBe(
-      'S01E01 – Pilot-我的句子-2026-10-31.docx'
+      'S01E01 – Pilot-2026-10-31.docx'
     );
     expect(buildExportFilename('S01E01 – Pilot', 'pdf', date)).toBe(
-      'S01E01 – Pilot-我的句子-2026-10-31.pdf'
+      'S01E01 – Pilot-2026-10-31.pdf'
     );
   });
 
   it('removes characters that are invalid in file names, including control characters', () => {
     expect(buildExportFilename('a\\b/c:d*e?f"g<h>i|j\u0001k\u007F', 'pdf', date)).toBe(
-      'abcdefghijk-我的句子-2026-10-31.pdf'
+      'abcdefghijk-2026-10-31.pdf'
     );
   });
 
   it('collapses whitespace and trims leading/trailing dots and spaces', () => {
     expect(buildExportFilename('  ..My   \t Title.. ', 'pdf', date)).toBe(
-      'My Title-我的句子-2026-10-31.pdf'
+      'My Title-2026-10-31.pdf'
     );
   });
 
   it('truncates long titles to 80 characters', () => {
     const name = buildExportFilename('x'.repeat(200), 'docx', date);
-    expect(name).toBe(`${'x'.repeat(80)}-我的句子-2026-10-31.docx`);
+    expect(name).toBe(`${'x'.repeat(80)}-2026-10-31.docx`);
   });
 
   it('falls back to "exercise" when nothing is left after cleaning', () => {
-    expect(buildExportFilename(' ...??** ', 'pdf', date)).toBe('exercise-我的句子-2026-10-31.pdf');
-    expect(buildExportFilename('', 'docx', date)).toBe('exercise-我的句子-2026-10-31.docx');
+    expect(buildExportFilename(' ...??** ', 'pdf', date)).toBe('exercise-2026-10-31.pdf');
+    expect(buildExportFilename('', 'docx', date)).toBe('exercise-2026-10-31.docx');
   });
 
   it('zero-pads month and day', () => {
     expect(formatLocalDate(new Date(2026, 0, 5))).toBe('2026-01-05');
-    expect(buildExportFilename('T', 'pdf', new Date(2026, 0, 5))).toBe('T-我的句子-2026-01-05.pdf');
+    expect(buildExportFilename('T', 'pdf', new Date(2026, 0, 5))).toBe('T-2026-01-05.pdf');
   });
 });
 

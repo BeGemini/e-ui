@@ -91,7 +91,7 @@
 | 换行与分页 | Word 自动处理 | `<Text>` 自动换行，`<Page wrap>` 自动分页；句块设置 `wrap={false}`，不跨页拆分 |
 | 断字 | — | `Font.registerHyphenationCallback(w => [w])`，禁止自动断字 |
 
-**文件名**（FR-014）：`buildExportFilename(title, ext, date)` 生成 `<清洗后的标题>-我的句子-YYYY-MM-DD.<ext>`。清洗规则见 [research.md R8](../research.md)。
+**文件名**（FR-014）：`buildExportFilename(title, ext, date)` 生成 `<清洗后的标题>-YYYY-MM-DD.<ext>`。清洗规则见 [research.md R8](../research.md)。
 
 **模块边界**（`lib/sentence-export/`）：
 

@@ -71,6 +71,11 @@ export async function upsertAttempt(params: UpsertAttemptParams): Promise<void> 
       JSON.stringify(params.wordFeedback),
     ]
   );
+
+  await execute(
+    'UPDATE UserExerciseProgress SET lastAttemptDate = NOW() WHERE progressId = ?',
+    [params.progressId]
+  );
 }
 
 interface AttemptRow {

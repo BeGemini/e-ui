@@ -48,9 +48,9 @@ export function sanitizeExportTitle(title: string): string {
   return cleaned || 'exercise';
 }
 
-/** Build `<title>-我的句子-YYYY-MM-DD.<ext>` with a filesystem-safe title. */
+/** Build `<title>-YYYY-MM-DD.<ext>` with a filesystem-safe title. */
 export function buildExportFilename(title: string, ext: ExportFormat, date: Date): string {
-  return `${sanitizeExportTitle(title)}-我的句子-${formatLocalDate(date)}.${ext}`;
+  return `${sanitizeExportTitle(title)}-${formatLocalDate(date)}.${ext}`;
 }
 
 /** True when the text contains CJK ideographs, CJK punctuation or full-width forms. */

@@ -372,135 +372,140 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
   };
 
   return (
-    <div className="w-full space-y-4 rounded-lg border border-gray-200 bg-black p-4">
-      {/* Video Element */}
-      <div className="relative w-full rounded-lg bg-black">
-        {videoUrlWithToken ? (
-          <video
-            ref={videoRef}
-            src={useMse ? undefined : videoUrlWithToken}
-            className="w-full rounded-lg bg-black"
-            crossOrigin="anonymous"
-            onLoadStart={() => {
-              setIsLoading(true);
-              setIsReady(false);
-              pendingPlayRef.current = false;
-              cancelPendingSeekPlay();
-            }}
-            onLoadedMetadata={handleLoadedMetadata}
-            onCanPlay={handleCanPlay}
-            onTimeUpdate={handleTimeUpdate}
-            onPlay={handlePlay}
-            onPause={handlePause}
-            onError={() => setIsLoading(false)}
-          />
-        ) : (
-          <div className="w-full aspect-video rounded-lg bg-gray-800 flex items-center justify-center">
-            <span className="text-gray-400">Loading video...</span>
+    <div className="w-full rounded-lg border border-gray-200 bg-black p-4">
+      <div className="flex gap-4">
+        {/* Left: video + progress + sentence info */}
+        <div className="flex-1 min-w-0 space-y-4">
+          {/* Video Element */}
+          <div className="relative w-full rounded-lg bg-black">
+            {videoUrlWithToken ? (
+              <video
+                ref={videoRef}
+                src={useMse ? undefined : videoUrlWithToken}
+                className="w-full rounded-lg bg-black"
+                crossOrigin="anonymous"
+                onLoadStart={() => {
+                  setIsLoading(true);
+                  setIsReady(false);
+                  pendingPlayRef.current = false;
+                  cancelPendingSeekPlay();
+                }}
+                onLoadedMetadata={handleLoadedMetadata}
+                onCanPlay={handleCanPlay}
+                onTimeUpdate={handleTimeUpdate}
+                onPlay={handlePlay}
+                onPause={handlePause}
+                onError={() => setIsLoading(false)}
+              />
+            ) : (
+              <div className="w-full aspect-video rounded-lg bg-gray-800 flex items-center justify-center">
+                <span className="text-gray-400">Loading video...</span>
+              </div>
+            )}
+
+            {/* Loading Spinner */}
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 rounded-lg">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-600 border-t-blue-500"></div>
+                  <span className="text-sm text-gray-400">Loading video...</span>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-        
-        {/* Loading Spinner */}
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 rounded-lg">
-            <div className="flex flex-col items-center gap-2">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-600 border-t-blue-500"></div>
-              <span className="text-sm text-gray-400">Loading video...</span>
+
+          {/* Progress Bar */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-300">{formatTime(currentTime)}</span>
+            <Slider
+              value={[currentTime]}
+              max={Math.max(duration, currentTime, 1)}
+              step={0.1}
+              onValueChange={handleSliderChange}
+              className="flex-1"
+            />
+            <span className="text-sm text-gray-300">{formatTime(duration)}</span>
+          </div>
+
+          {/* Sentence Info */}
+          {currentSubtitle && (
+            <div className="flex items-center justify-between rounded bg-gray-800 px-3 py-2 text-sm text-gray-300">
+              <span>
+                Sentence {currentSubtitle.index + 1} / {totalSentences}
+              </span>
+              <span className="text-xs text-gray-500">
+                Duration: {(currentSubtitle.endSeconds - currentSubtitle.startSeconds).toFixed(1)}s
+              </span>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Progress Bar */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-300">{formatTime(currentTime)}</span>
-        <Slider
-          value={[currentTime]}
-          max={Math.max(duration, currentTime, 1)}
-          step={0.1}
-          onValueChange={handleSliderChange}
-          className="flex-1"
-        />
-        <span className="text-sm text-gray-300">{formatTime(duration)}</span>
-      </div>
-
-      {/* Sentence Info */}
-      {currentSubtitle && (
-        <div className="flex items-center justify-between rounded bg-gray-800 px-3 py-2 text-sm text-gray-300">
-          <span>
-            Sentence {currentSubtitle.index + 1} / {totalSentences}
-          </span>
-          <span className="text-xs text-gray-500">
-            Duration: {(currentSubtitle.endSeconds - currentSubtitle.startSeconds).toFixed(1)}s
-          </span>
+          )}
         </div>
-      )}
 
-      {/* Controls */}
-      <div className="flex items-center justify-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onPreviousSentence}
-          disabled={!onPreviousSentence || !currentSubtitle || currentSentenceIndex <= 0 || isPreviousDisabled}
-          className="bg-transparent border-0 text-gray-300 hover:bg-gray-700 hover:text-white rounded disabled:text-gray-500"
-          aria-label="Previous sentence"
-          title="Previous sentence"
-        >
-          <SkipBack size={16} />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handlePlayPause}
-          className="bg-transparent border-0 text-gray-300 hover:bg-gray-700 hover:text-white rounded"
-          title={isPlaying ? 'Pause' : 'Play'}
-        >
-          {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleReplay}
-          disabled={!currentSubtitle}
-          className="bg-transparent border-0 text-gray-300 hover:bg-gray-700 hover:text-white rounded disabled:text-gray-500"
-          title="Replay"
-        >
-          <RotateCcw size={16} />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSkipReplay}
-          disabled={!currentSubtitle || currentSentenceIndex >= subtitles.length - 1}
-          className="bg-transparent border-0 text-gray-300 hover:bg-gray-700 hover:text-white rounded disabled:text-gray-500"
-          title="Skip & Continue"
-        >
-          <SkipForward size={16} />
-        </Button>
-        <Select
-          items={PLAYBACK_RATE_ITEMS}
-          value={playbackRate}
-          onValueChange={(v) => {
-            if (isPlaybackRate(v)) setPlaybackRate(v);
-          }}
-        >
-          <SelectTrigger
+        {/* Right: vertical controls, next to the dictation input column */}
+        <div className="flex flex-col items-center justify-start gap-2">
+          <Button
+            variant="outline"
             size="sm"
-            className="bg-transparent border-0 text-gray-300 hover:bg-gray-700 hover:text-white rounded"
-            aria-label="Playback speed"
-            title="Playback speed"
+            onClick={onPreviousSentence}
+            disabled={!onPreviousSentence || !currentSubtitle || currentSentenceIndex <= 0 || isPreviousDisabled}
+            className="w-9 px-0 bg-transparent border-0 text-gray-300 hover:bg-gray-700 hover:text-white rounded disabled:text-gray-500"
+            aria-label="Previous sentence"
+            title="Previous sentence"
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PLAYBACK_RATE_ITEMS.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            <SkipBack size={16} />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePlayPause}
+            className="w-9 px-0 bg-transparent border-0 text-gray-300 hover:bg-gray-700 hover:text-white rounded"
+            title={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReplay}
+            disabled={!currentSubtitle}
+            className="w-9 px-0 bg-transparent border-0 text-gray-300 hover:bg-gray-700 hover:text-white rounded disabled:text-gray-500"
+            title="Replay"
+          >
+            <RotateCcw size={16} />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSkipReplay}
+            disabled={!currentSubtitle || currentSentenceIndex >= subtitles.length - 1}
+            className="w-9 px-0 bg-transparent border-0 text-gray-300 hover:bg-gray-700 hover:text-white rounded disabled:text-gray-500"
+            title="Skip & Continue"
+          >
+            <SkipForward size={16} />
+          </Button>
+          <Select
+            items={PLAYBACK_RATE_ITEMS}
+            value={playbackRate}
+            onValueChange={(v) => {
+              if (isPlaybackRate(v)) setPlaybackRate(v);
+            }}
+          >
+            <SelectTrigger
+              size="sm"
+              className="w-9 h-7 justify-center gap-0 px-0 bg-transparent border-0 text-gray-300 hover:bg-gray-700 hover:text-white rounded [&_svg]:hidden"
+              aria-label="Playback speed"
+              title="Playback speed"
+            >
+              <SelectValue className="flex-none" />
+            </SelectTrigger>
+            <SelectContent>
+              {PLAYBACK_RATE_ITEMS.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   );

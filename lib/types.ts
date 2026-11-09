@@ -8,6 +8,8 @@
 export interface User {
   userId: string;
   email: string;
+  name?: string | null;
+  avatarUrl?: string | null;
   passwordHash: string;
   role: 'admin' | 'user';
   registrationDate: Date;

@@ -61,7 +61,7 @@ GROUP BY progressId, sentenceIndex HAVING c > 1;
 
 | 开关 | 格式 | 期望 |
 |---|---|---|
-| 关 | Word (.docx) | 下载 `<标题>-我的句子-YYYY-MM-DD.docx`。用 Word、WPS 或 LibreOffice 打开，能看到标题、导出日期和按顺序排列的 `Sentence N` 与内容，**不含原文** |
+| 关 | Word (.docx) | 下载 `<标题>-YYYY-MM-DD.docx`。用 Word、WPS 或 LibreOffice 打开，能看到标题、导出日期和按顺序排列的 `Sentence N` 与内容，**不含原文** |
 | 开 | Word (.docx) | 每句下方有浅绿底纹的 `Original: …` 段落 |
 | 关 | PDF | 下载 `.pdf`，在 Chrome、Preview 或 Acrobat 中都能打开，内容与页面一致 |
 | 开 | PDF | 原文块有浅绿背景；同一句没有被拆到两页 |

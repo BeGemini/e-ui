@@ -91,7 +91,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <header className="border-b bg-white shadow">
+      <header className="border-b bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
           <h1 className="text-2xl font-bold text-gray-900">Content Management</h1>
           <Button variant="outline" render={<Link href="/dashboard" />} nativeButton={false}>

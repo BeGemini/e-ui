@@ -54,6 +54,7 @@ export function levenshteinDistance(str1: string, str2: string): number {
 export function tokenizeText(text: string): string[] {
   return text
     .toLowerCase()
+    .replace(/[‘’]/g, "'") // Normalize curly apostrophes to straight ones
     .replace(/[^\w\s'-]/g, ' ') // Replace punctuation with spaces
     .split(/\s+/)
     .filter((word) => word.length > 0);

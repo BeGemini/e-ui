@@ -182,12 +182,12 @@ description: "Task list for 008 — 练习句子记录、回顾页与导出"
 
 **Goal**: 回顾页 “Export” 下拉菜单提供 `Word (.docx)` 与 `PDF`，按“所见即所导”在浏览器端生成并下载文件；导出中防重复点击，失败给出友好提示（FR-012 ~ FR-016）
 
-**Independent Test**: 在有 ≥10 条记录的页面，开关关/开各导出一次 .docx 与 .pdf：文件名为 `<标题>-我的句子-YYYY-MM-DD.<ext>`，能被 Word/WPS/LibreOffice 与 Chrome/Preview 正常打开，内容与页面顺序一致，开关打开时原文带浅绿背景、关闭时不含原文（quickstart.md §3）。单元测试通过
+**Independent Test**: 在有 ≥10 条记录的页面，开关关/开各导出一次 .docx 与 .pdf：文件名为 `<标题>-YYYY-MM-DD.<ext>`，能被 Word/WPS/LibreOffice 与 Chrome/Preview 正常打开，内容与页面顺序一致，开关打开时原文带浅绿背景、关闭时不含原文（quickstart.md §3）。单元测试通过
 
 ### Tests for User Story 3
 
 - [X] T024 [P] [US3] 新建 tests/unit/sentence-export.test.ts，文件顶部加 `/** @jest-environment node */`（docx 打包与 Blob 在 Node 环境下更可靠，research R9）：
-  - `buildExportFilename`：`('S01E01 – Pilot', 'docx', new Date(2026, 9, 31))` → `'S01E01 – Pilot-我的句子-2026-10-31.docx'`；含 `\ / : * ? " < > |` 和控制字符的标题被清除；多余空白合并；首尾的点和空格被去掉；超过 80 字符被截断；清洗后为空时回退为 `exercise`；月/日补零；
+  - `buildExportFilename`：`('S01E01 – Pilot', 'docx', new Date(2026, 9, 31))` → `'S01E01 – Pilot-2026-10-31.docx'`；含 `\ / : * ? " < > |` 和控制字符的标题被清除；多余空白合并；首尾的点和空格被去掉；超过 80 字符被截断；清洗后为空时回退为 `exercise`；月/日补零；
   - `containsCjk`：`'hello'`、`"don't “quoted” – —…"` 为 false；`'你好'`、`'全角，'`（U+FF0C）、`'。'`（U+3002）为 true；
   - DOCX：调用 `createDocument(input)` 后 `Packer.toBuffer(doc)`，用 `jszip`（docx 的依赖）读取 `word/document.xml`：包含标题、`Sentence 1`、学习者内容、`(Skipped)`（空 userInput）；`includeOriginal: true` 时包含 `Original:` 与 `E8F5E9`，`false` 时都不包含；再调用 `build(input)` 断言返回 `Blob` 且 `size > 0`、`type` 为 docx MIME。
   - 若 `jszip` 不能直接 import，改为断言 `Packer.toBuffer` 结果以 `PK` 开头并跳过 XML 断言，在任务备注中说明
@@ -199,7 +199,7 @@ description: "Task list for 008 — 练习句子记录、回顾页与导出"
   - `export interface SentenceExportInput { title: string; exportedAt: Date; includeOriginal: boolean; sentences: MySentence[] }`
   - `export type ExportFormat = 'docx' | 'pdf';` 以及 `EXPORT_MIME: Record<ExportFormat, string>`（docx：`application/vnd.openxmlformats-officedocument.wordprocessingml.document`；pdf：`application/pdf`）
   - `formatLocalDate(date: Date): string` → `YYYY-MM-DD`（本地时区）
-  - `buildExportFilename(title: string, ext: ExportFormat, date: Date): string`：清洗规则见 research R8（去掉 `\ / : * ? " < > |` 和控制字符 → 合并空白 → 去首尾点和空格 → 截断到 80 字符 → 空则 `exercise`），输出 `<标题>-我的句子-YYYY-MM-DD.<ext>`
+  - `buildExportFilename(title: string, ext: ExportFormat, date: Date): string`：清洗规则见 research R8（去掉 `\ / : * ? " < > |` 和控制字符 → 合并空白 → 去首尾点和空格 → 截断到 80 字符 → 空则 `exercise`），输出 `<标题>-YYYY-MM-DD.<ext>`
   - `containsCjk(text: string): boolean`，正则 `/[\u3000-\u303F\u3400-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]/`
   - `downloadBlob(blob: Blob, filename: string): void`：`URL.createObjectURL` → 创建不挂 UI 的临时 `<a download>` → `click()` → 移除 → `URL.revokeObjectURL`
 - [X] T026 [P] [US3] 新建 lib/sentence-export/build-docx.ts（依赖 T025；与 T027 不同文件可并行），按 contracts/sentences-page-and-export.md §4 与 research R6：

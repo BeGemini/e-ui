@@ -25,6 +25,10 @@ export const LoginSchema = z.object({
   password: z.string().min(1, 'Password required'),
 });
 
+export const UpdateProfileSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(100, 'Name too long'),
+});
+
 /**
  * Practice Schemas
  */

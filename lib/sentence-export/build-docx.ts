@@ -46,7 +46,6 @@ export function createDocument(input: SentenceExportInput): Document {
   for (const sentence of sentences) {
     children.push(
       new Paragraph({
-        keepNext: includeOriginal,
         spacing: includeOriginal ? { after: 2 * PT } : { after: 10 * PT },
         children: [
           sentence.userInput
@@ -60,7 +59,6 @@ export function createDocument(input: SentenceExportInput): Document {
       children.push(
         new Paragraph({
           shading: { type: ShadingType.CLEAR, fill: ORIGINAL_BG_HEX, color: 'auto' },
-          indent: { left: 6 * PT, right: 6 * PT },
           spacing: { after: 10 * PT },
           children: [
             new TextRun({

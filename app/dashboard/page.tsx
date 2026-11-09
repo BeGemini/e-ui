@@ -2,16 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { LogOut, Settings } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import DashboardOverview from '@/app/components/dashboard/DashboardOverview';
 import ExerciseList from '@/app/components/exercise-list/ExerciseList';
+import UserMenu, { type UserMenuUser } from '@/app/components/user/UserMenu';
 
 export default function DashboardPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserMenuUser | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -45,23 +43,6 @@ export default function DashboardPage() {
     checkAuth();
   }, [router]);
 
-  const handleLogout = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch (err) {
-      console.error('Logout failed:', err);
-    }
-
-    localStorage.removeItem('token');
-    router.push('/');
-  };
-
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -76,59 +57,40 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
-      <header className="border-b bg-white shadow">
+      <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                English Listening Dictation
-              </h1>
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://shadowing-videos-1324158827.cos.ap-guangzhou.myqcloud.com/assets/logo.png"
+                alt="Logo"
+                className="h-10 w-10 rounded-lg"
+              />
               {user && (
                 <p className="text-sm text-gray-600">
-                  Welcome, {user.email}
+                  Welcome, {user.name || user.email}
                 </p>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {user?.role === 'admin' && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label="Content management"
-                  title="Content management"
-                  render={<Link href="/admin" />}
-                  nativeButton={false}
-                >
-                  <Settings />
-                </Button>
-              )}
-              <Button
-                onClick={handleLogout}
-                variant="outline"
-                size="icon"
-                aria-label="Logout"
-                title="Logout"
-                className="border-gray-300 hover:bg-gray-100"
-              >
-                <LogOut />
-              </Button>
+              {user && <UserMenu user={user} />}
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Available Exercises
-          </h2>
-          <p className="text-sm text-gray-600">
-            Choose an exercise to practice
-          </p>
-        </div>
+      <main className="mx-auto max-w-7xl space-y-10 px-4 py-8 sm:px-6 lg:px-8">
+        <DashboardOverview />
 
-        <ExerciseList />
+        <section>
+          <h2 className="mb-3 text-sm font-semibold text-gray-900">
+            Browse exercises
+          </h2>
+
+          <ExerciseList />
+        </section>
       </main>
     </div>
   );
