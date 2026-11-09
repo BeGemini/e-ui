@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Wand2, X } from 'lucide-react';
 import { SubtitleList } from '@/app/components/subtitle-editor/SubtitleList';
 import { MergeGroupEditor } from '@/app/components/subtitle-editor/MergeGroupEditor';
 import { SkipSentenceEditor } from '@/app/components/subtitle-editor/SkipSentenceEditor';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { applySubtitleConfigWithLock } from '@/lib/utils';
+import { applySubtitleConfigWithLock, getMergedOriginalIndices } from '@/lib/utils';
 import { ParsedSubtitle, EffectiveSubtitle, MergeGroup } from '@/lib/types';
 
 interface UserProgress {
@@ -32,6 +32,7 @@ export default function SubtitleEditorPage() {
   const [selectedForMerge, setSelectedForMerge] = useState<number[]>([]);
   const [mergeGroups, setMergeGroups] = useState<MergeGroup[]>([]);
   const [skippedSentences, setSkippedSentences] = useState<number[]>([]);
+  const [autoMergeSummary, setAutoMergeSummary] = useState<string | null>(null);
 
   // Fetch data on mount
   useEffect(() => {
@@ -178,6 +179,7 @@ export default function SubtitleEditorPage() {
     const nextGroups = [...mergeGroups, group];
     setMergeGroups(nextGroups);
     setSelectedForMerge([]);
+    setAutoMergeSummary(null);
     recomputeEffectiveSubtitles(nextGroups, skippedSentences);
   };
 
@@ -216,9 +218,64 @@ export default function SubtitleEditorPage() {
     handleAddGroup(newGroup);
   };
 
+  const handleAutoMerge = () => {
+    const mergedIndices = getMergedOriginalIndices(mergeGroups);
+    const newGroups: MergeGroup[] = [];
+
+    let start = -1;
+    const flush = (end: number) => {
+      if (start >= 0 && end > start) {
+        newGroups.push({
+          startIndex: start,
+          endIndex: end,
+          label: `Auto ${mergeGroups.length + newGroups.length + 1}`,
+        });
+      }
+      start = -1;
+    };
+
+    // Accumulate sentences that contain no sentence/clause-ending
+    // punctuation and merge them with the following ones; the group ends at
+    // the first sentence containing one of: , . ? ! ; : (or their full-width
+    // variants). Locked (already practiced) sentences and indices covered by
+    // existing merge groups act as hard boundaries.
+    const terminatorPattern = /[,.?!;:,.?!:;]/;
+    for (let i = 0; i < rawSubtitles.length; i++) {
+      if (i < currentProgress || mergedIndices.has(i)) {
+        flush(i - 1);
+        continue;
+      }
+      if (start < 0) {
+        start = i;
+      }
+      if (terminatorPattern.test(rawSubtitles[i].text)) {
+        flush(i);
+      }
+    }
+    flush(rawSubtitles.length - 1);
+
+    if (newGroups.length === 0) {
+      setAutoMergeSummary(null);
+      toast({
+        title: 'Nothing to merge',
+        description: 'No consecutive sentences without ending punctuation (, . ? ! ; :) were found.',
+      });
+      return;
+    }
+
+    const nextGroups = [...mergeGroups, ...newGroups];
+    setMergeGroups(nextGroups);
+    setSelectedForMerge([]);
+    recomputeEffectiveSubtitles(nextGroups, skippedSentences);
+    setAutoMergeSummary(
+      `Merge successful: created ${newGroups.length} merge group${newGroups.length > 1 ? 's' : ''}. Review them below, then click "Save Changes" to apply.`
+    );
+  };
+
   const handleDeleteGroup = (startIndex: number) => {
     const nextGroups = mergeGroups.filter((g) => g.startIndex !== startIndex);
     setMergeGroups(nextGroups);
+    setAutoMergeSummary(null);
     recomputeEffectiveSubtitles(nextGroups, skippedSentences);
   };
 
@@ -231,6 +288,7 @@ export default function SubtitleEditorPage() {
       (g) => g.startIndex !== startOriginal
     );
     setMergeGroups(nextGroups);
+    setAutoMergeSummary(null);
     recomputeEffectiveSubtitles(nextGroups, skippedSentences);
   };
 
@@ -279,6 +337,7 @@ export default function SubtitleEditorPage() {
         throw new Error(data?.error || 'Failed to save configuration');
       }
 
+      setAutoMergeSummary(null);
       toast({
         title: 'Success',
         description: 'Subtitle configuration saved. Changes apply to next playback.',
@@ -318,6 +377,7 @@ export default function SubtitleEditorPage() {
       setMergeGroups([]);
       setSkippedSentences([]);
       setSelectedForMerge([]);
+      setAutoMergeSummary(null);
       recomputeEffectiveSubtitles([], []);
 
       toast({
@@ -366,15 +426,26 @@ export default function SubtitleEditorPage() {
             <h1 className="text-3xl font-bold text-gray-900">Customize Subtitles</h1>
             <p className="text-gray-600 mt-1">Merge sentences or skip them during practice</p>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Back"
-            title="Back"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleAutoMerge}
+              disabled={isSaving || rawSubtitles.length === 0}
+              title="Automatically merge consecutive sentences that have no ending punctuation (, . ? ! ; :)"
+            >
+              <Wand2 className="mr-2 h-4 w-4" />
+              One-Click Merge
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Back"
+              title="Back"
+              onClick={() => router.back()}
+            >
+              <ArrowLeft />
+            </Button>
+          </div>
         </div>
 
         {/* Info Banner */}
@@ -384,6 +455,24 @@ export default function SubtitleEditorPage() {
             Subtitle customization helps you focus on specific sections or skip parts you find too easy.
           </p>
         </div>
+
+        {/* Auto Merge Result Banner */}
+        {autoMergeSummary && (
+          <div className="flex items-start justify-between gap-2 rounded-lg bg-green-50 border border-green-200 p-4">
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+              <p className="text-sm text-green-900">{autoMergeSummary}</p>
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              onClick={() => setAutoMergeSummary(null)}
+              className="shrink-0 text-green-600 hover:text-green-800"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {/* Subtitle List */}
         <SubtitleList
