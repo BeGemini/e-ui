@@ -1,9 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, ArrowLeft, Loader2, Plus } from 'lucide-react';
+import { AlertCircle, Loader2, Plus } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,7 +80,7 @@ export default function AdminPage() {
 
   if (!authorized) {
     return (
-      <main className="flex min-h-screen items-center justify-center" aria-busy="true">
+      <main className="flex flex-1 items-center justify-center" aria-busy="true">
         <Loader2 className="size-8 animate-spin text-muted-foreground" aria-label="Loading" />
       </main>
     );
@@ -90,18 +89,9 @@ export default function AdminPage() {
   const hasEpisodes = options.episodes.length > 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold text-gray-900">Content Management</h1>
-          <Button variant="outline" render={<Link href="/dashboard" />} nativeButton={false}>
-            <ArrowLeft aria-hidden="true" />
-            Back to dashboard
-          </Button>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="flex-1 bg-gradient-to-br from-gray-50 to-gray-100">
+      <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+        <h1 className="text-2xl font-bold text-gray-900">Content Management</h1>
         <Card>
           <CardHeader>
             <CardTitle>Series</CardTitle>

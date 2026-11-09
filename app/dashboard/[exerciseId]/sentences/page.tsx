@@ -71,7 +71,7 @@ export default function MySentencesPage() {
 
   if (status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center" aria-busy="true">
+      <div className="flex flex-1 items-center justify-center" aria-busy="true">
         <p className="text-gray-600">Loading your sentences...</p>
       </div>
     );
@@ -79,7 +79,7 @@ export default function MySentencesPage() {
 
   if (status === 'not-found') {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <h1 className="mb-4 text-xl font-semibold text-gray-900">Exercise not found</h1>
           <Button onClick={() => router.back()}>Go Back</Button>
@@ -90,7 +90,7 @@ export default function MySentencesPage() {
 
   if (status === 'error' || !data) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <h1 className="mb-4 text-xl font-semibold text-red-600">
             Couldn&apos;t load your sentences. Please try again.
@@ -105,7 +105,7 @@ export default function MySentencesPage() {
   const canExport = status === 'ready' && sentences.length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex-1 bg-gray-50">
       <main className="mx-auto max-w-4xl px-6 py-8">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div className="min-w-0">

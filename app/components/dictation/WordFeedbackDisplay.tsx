@@ -59,19 +59,6 @@ export function WordFeedbackDisplay({
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'correct':
-        return '✓';
-      case 'typo':
-        return '~';
-      case 'wrong':
-        return '✗';
-      default:
-        return '?';
-    }
-  };
-
   const handleCreate = (text: string) => {
     setCapturedText(text);
     setCreateInitialDescription('');
@@ -98,19 +85,16 @@ export function WordFeedbackDisplay({
       {/* Accuracy Header */}
       <div className="flex items-center justify-between border-b border-gray-200 pb-3">
         <h3 className="font-semibold text-gray-900">Feedback</h3>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-gray-900">{accuracy}%</span>
-          <div
-            className={`h-12 w-12 rounded-full flex items-center justify-center font-bold text-white ${
-              accuracy >= 80
-                ? 'bg-green-500'
-                : accuracy >= 50
-                  ? 'bg-yellow-500'
-                  : 'bg-red-500'
-            }`}
-          >
-            {accuracy >= 80 ? '✓' : accuracy >= 50 ? '◐' : '✗'}
-          </div>
+        <div
+          className={`h-12 w-12 rounded-full flex items-center justify-center text-sm font-bold text-white ${
+            accuracy >= 80
+              ? 'bg-green-500'
+              : accuracy >= 50
+                ? 'bg-yellow-500'
+                : 'bg-red-500'
+          }`}
+        >
+          {accuracy}%
         </div>
       </div>
 
@@ -174,7 +158,6 @@ export function WordFeedbackDisplay({
               title={`Expected: "${fb.word}" | You said: "${fb.userWord}" | Status: ${fb.status}`}
             >
               <span>{fb.userWord}</span>
-              <span className="ml-1 text-xs font-bold">{getStatusBadge(fb.status)}</span>
             </div>
           ))}
         </div>

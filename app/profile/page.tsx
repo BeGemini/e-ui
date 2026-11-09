@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, Camera } from 'lucide-react';
+import { Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -172,7 +171,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
@@ -186,21 +185,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <header className="border-b bg-white">
-        <div className="mx-auto max-w-3xl px-4 py-4 sm:px-6 lg:px-8">
-          <Button
-            variant="ghost"
-            size="sm"
-            render={<Link href="/dashboard" />}
-            nativeButton={false}
-          >
-            <ArrowLeft />
-            Back to Dashboard
-          </Button>
-        </div>
-      </header>
-
+    <div className="flex-1 bg-gradient-to-br from-gray-50 to-gray-100">
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
         <Card>
           <CardHeader>

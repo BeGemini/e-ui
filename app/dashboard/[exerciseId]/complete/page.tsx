@@ -110,7 +110,7 @@ export default function ExerciseCompletionPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600 mx-auto"></div>
           <p className="text-gray-600">Loading completion details...</p>
@@ -121,7 +121,7 @@ export default function ExerciseCompletionPage() {
 
   if (!completionData) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">Unable to load completion data</p>
           <Button onClick={() => router.back()}>Go Back</Button>
@@ -138,7 +138,7 @@ export default function ExerciseCompletionPage() {
 
   return (
     <div
-      className={`min-h-screen bg-gradient-to-b ${
+      className={`flex-1 bg-gradient-to-b ${
         isCompleted ? 'from-green-50' : 'from-blue-50'
       } to-gray-50 py-8 px-4 sm:px-6 lg:px-8`}
     >

@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Captions, History, NotebookText, Play } from 'lucide-react';
 import { isExternalVideoUrl } from '@/lib/utils';
 
 export default function ExerciseDetailPage() {
@@ -53,31 +52,9 @@ export default function ExerciseDetailPage() {
     }
   }, [exerciseId, router]);
 
-  const handleStartPractice = async () => {
-    const token = localStorage.getItem('token');
-    try {
-      await fetch(`/api/exercises/${exerciseId}/start`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      router.push(`/dashboard/${exerciseId}/practice`);
-    } catch (err) {
-      console.error('Failed to start practice:', err);
-      setError('Failed to start practice');
-    }
-  };
-
-  const handleCustomizeSubtitles = () => {
-    router.push(`/dashboard/${exerciseId}/subtitles`);
-  };
-
-  const handleViewHistory = () => {
-    router.push(`/dashboard/${exerciseId}/complete`);
-  };
-
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
@@ -88,7 +65,7 @@ export default function ExerciseDetailPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         <Card className="max-w-md p-6">
           <div className="text-center">
             <p className="text-red-600 font-medium mb-4">{error}</p>
@@ -101,7 +78,7 @@ export default function ExerciseDetailPage() {
 
   if (!exercise) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         <p className="text-gray-600">Exercise not found</p>
       </div>
     );
@@ -115,22 +92,8 @@ export default function ExerciseDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="flex-1 bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <main className="mx-auto max-w-4xl space-y-6">
-        <header className="flex items-center justify-between gap-4">
-          <h1 className="text-3xl font-bold text-gray-900">
-            {exercise.title}
-          </h1>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Back"
-            title="Back"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft />
-          </Button>
-        </header>
         <Card className="p-8">
           <div className="space-y-6">
             {/* Difficulty Badge */}
@@ -182,73 +145,74 @@ export default function ExerciseDetailPage() {
             {/* User Progress */}
             {exercise.userProgress && (
               <div className="rounded-lg bg-blue-50 p-4">
-                <p className="text-sm font-medium text-blue-900 mb-2">
-                  Your Progress
-                </p>
-                <div className="space-y-2 text-sm text-blue-700">
-                  <p>
-                    Current Position:{' '}
-                    <span className="font-semibold">
-                      Sentence {exercise.userProgress.currentSentenceIndex + 1}
-                    </span>
-                  </p>
-                  {Boolean(exercise.userProgress.isCompleted) && (
-                    <p className="text-green-700 font-medium">
-                      ✓ Completed
+                <div className="flex items-center gap-4">
+                  {(() => {
+                    const total = exercise.totalSentences ?? 0;
+                    const current = exercise.userProgress.currentSentenceIndex;
+                    const percent = exercise.userProgress.isCompleted
+                      ? 100
+                      : total > 0
+                        ? Math.round((current / total) * 100)
+                        : 0;
+
+                    return (
+                      <div className="relative h-16 w-16 shrink-0">
+                        <svg viewBox="0 0 36 36" className="h-16 w-16 -rotate-90">
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="15.9155"
+                            fill="none"
+                            stroke="#dbeafe"
+                            strokeWidth="3"
+                          />
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="15.9155"
+                            fill="none"
+                            stroke="#2563eb"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeDasharray={`${percent} ${100 - percent}`}
+                          />
+                        </svg>
+                        <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-blue-900">
+                          {percent}%
+                        </span>
+                      </div>
+                    );
+                  })()}
+                  <div>
+                    <p className="text-sm font-medium text-blue-900 mb-2">
+                      Your Progress
                     </p>
-                  )}
-                  {exercise.userProgress.overallAccuracy != null && (
-                    <p>
-                      Best Accuracy:{' '}
-                      <span className="font-semibold">
-                        {Number(exercise.userProgress.overallAccuracy).toFixed(1)}%
-                      </span>
-                    </p>
-                  )}
+                    <div className="space-y-2 text-sm text-blue-700">
+                      <p>
+                        Current Position:{' '}
+                        <span className="font-semibold">
+                          Sentence {exercise.userProgress.currentSentenceIndex + 1} of{' '}
+                          {exercise.totalSentences}
+                        </span>
+                      </p>
+                      {Boolean(exercise.userProgress.isCompleted) && (
+                        <p className="text-green-700 font-medium">
+                          ✓ Completed
+                        </p>
+                      )}
+                      {exercise.userProgress.overallAccuracy != null && (
+                        <p>
+                          Best Accuracy:{' '}
+                          <span className="font-semibold">
+                            {Number(exercise.userProgress.overallAccuracy).toFixed(1)}%
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={handleStartPractice}
-              size="icon"
-              aria-label="Start Practice"
-              title="Start Practice"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Play />
-            </Button>
-            <Button
-              onClick={handleCustomizeSubtitles}
-              variant="outline"
-              size="icon"
-              aria-label="Customize Subtitles"
-              title="Customize Subtitles"
-              className="border-gray-300 hover:bg-gray-100"
-            >
-              <Captions />
-            </Button>
-            <Button
-              onClick={handleViewHistory}
-              variant="outline"
-              size="icon"
-              aria-label="View History"
-              title="View History"
-              className="border-gray-300 hover:bg-gray-100"
-            >
-              <History />
-            </Button>
-            <Button
-              onClick={() => router.push(`/dashboard/${exerciseId}/sentences`)}
-              variant="outline"
-              size="icon"
-              aria-label="My Sentences"
-              title="My Sentences"
-              className="border-gray-300 hover:bg-gray-100"
-            >
-              <NotebookText />
-            </Button>
           </div>
         </Card>
       </main>

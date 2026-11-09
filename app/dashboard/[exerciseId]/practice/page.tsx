@@ -8,7 +8,7 @@ import { DictationInput } from '@/app/components/dictation/DictationInput';
 import { WordFeedbackDisplay } from '@/app/components/dictation/WordFeedbackDisplay';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, BookOpen, Captions, LayoutDashboard, NotebookText } from 'lucide-react';
+import { usePracticeProgress } from '@/app/components/layout/PracticeProgress';
 import type { KnowledgePoint, PracticeAttempt, SaveAttemptRequest, WordFeedback } from '@/lib/types';
 
 interface Subtitle {
@@ -71,6 +71,7 @@ export default function PracticePage() {
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
   // Serializes sentence saves so they reach the server in the order the user acted.
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
+  const { setProgress } = usePracticeProgress();
 
   // Queue a background save of the checked sentence. Never rejects, never blocks the UI.
   const enqueueSaveAttempt = (payload: SaveAttemptRequest) => {
@@ -161,6 +162,14 @@ export default function PracticePage() {
   const totalSentences = practiceData?.totalSentences ?? practiceData?.subtitles.length ?? 0;
 
   const currentSubtitle = getCurrentSubtitle();
+
+  // Report progress so the site header can display it.
+  useEffect(() => {
+    if (!practiceData) return;
+    setProgress({ current: currentSentenceIndex, total: totalSentences });
+  }, [practiceData, currentSentenceIndex, totalSentences, setProgress]);
+
+  useEffect(() => () => setProgress(null), [setProgress]);
 
   const cacheAttempt = (attempt: PracticeAttempt) => {
     setPracticeData((current) => current ? {
@@ -360,7 +369,7 @@ export default function PracticePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600 mx-auto"></div>
           <p className="text-gray-600">Loading practice data...</p>
@@ -371,7 +380,7 @@ export default function PracticePage() {
 
   if (!practiceData) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">Unable to load exercise data</p>
           <Button onClick={() => router.back()}>Go Back</Button>
@@ -382,7 +391,7 @@ export default function PracticePage() {
 
   if (!currentSubtitle) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">No subtitles available for this exercise</p>
           <p className="text-gray-600 mb-4">Please check the subtitle file or contact an administrator.</p>
@@ -392,74 +401,13 @@ export default function PracticePage() {
     );
   }
 
-    const progressPercent = totalSentences > 0
-      ? Math.round((currentSentenceIndex / totalSentences) * 100)
-      : 0;
-
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="flex-1 bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto w-[90%] space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Practice Dictation</h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Sentence {currentSentenceIndex + 1} of {totalSentences} ({progressPercent}%)
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Back to dashboard"
-                title="Back to dashboard"
-                onClick={() => router.push('/dashboard')}
-              >
-                <LayoutDashboard />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Customize Subtitles"
-                title="Customize Subtitles"
-                onClick={() => router.push(`/dashboard/${exerciseId}/subtitles`)}
-              >
-                <Captions />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Knowledge Points"
-                title="Knowledge Points"
-                onClick={() => router.push(`/dashboard/${exerciseId}/knowledge-points`)}
-              >
-                <BookOpen />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="My Sentences"
-                title="My Sentences"
-                onClick={() => router.push(`/dashboard/${exerciseId}/sentences`)}
-              >
-                <NotebookText />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Back"
-                title="Back"
-                onClick={() => router.back()}
-              >
-                <ArrowLeft />
-              </Button>
-            </div>
-          </div>
-
-          {/* Main content: video on the left (2/3), dictation/feedback on the right (1/3) */}
+          {/* Main content: video on the left (7/12), dictation/feedback on the right (5/12) */}
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
             {/* Video Player */}
-            <div className="w-full lg:w-2/3 min-w-0">
+            <div className="w-full lg:w-7/12 min-w-0">
               <VideoPlayer
                 ref={videoPlayerRef}
                 videoUrl={practiceData.videoUrl}
@@ -472,11 +420,8 @@ export default function PracticePage() {
               />
             </div>
 
-            {/* Vertical divider */}
-            <div className="hidden lg:block w-px bg-gray-200 self-stretch" />
-
             {/* Right side: Dictation + Feedback + Actions */}
-            <div className="w-full lg:w-1/3 min-w-0 space-y-6">
+            <div className="w-full lg:w-5/12 min-w-0 space-y-6">
               {/* Dictation Input */}
               <DictationInput
                 value={userInput}
