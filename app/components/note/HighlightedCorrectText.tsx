@@ -2,38 +2,38 @@
 
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { KNOWLEDGE_POINT_CATEGORY_MAP } from '@/lib/types';
-import type { KnowledgePoint, KnowledgePointCategory } from '@/lib/types';
-import { buildHighlightSegments } from '@/lib/knowledge-point-utils';
+import { NOTE_CATEGORY_MAP } from '@/lib/types';
+import type { Note, NoteCategory } from '@/lib/types';
+import { buildHighlightSegments } from '@/lib/note-utils';
 
-interface KnowledgePointRange {
-  knowledgePoint: KnowledgePoint;
+interface NoteRange {
+  note: Note;
   start: number;
   end: number;
 }
 
 interface HighlightedCorrectTextProps {
   text: string;
-  knowledgePoints: KnowledgePoint[];
+  notes: Note[];
   className?: string;
-  onEditKnowledgePoint?: (knowledgePoint: KnowledgePoint) => void;
+  onEditNote?: (note: Note) => void;
 }
 
 /**
  * Combine multiple category colors into a single background gradient.
  * When segments overlap, the colors are layered with transparency.
  */
-function combineCategoryColors(categories: KnowledgePointCategory[]): string {
+function combineCategoryColors(categories: NoteCategory[]): string {
   if (categories.length === 0) {
     return 'transparent';
   }
 
   if (categories.length === 1) {
-    return KNOWLEDGE_POINT_CATEGORY_MAP[categories[0]].fallbackColor;
+    return NOTE_CATEGORY_MAP[categories[0]].fallbackColor;
   }
 
   const colors = categories.map(
-    (category) => KNOWLEDGE_POINT_CATEGORY_MAP[category].fallbackColor
+    (category) => NOTE_CATEGORY_MAP[category].fallbackColor
   );
   const step = 100 / colors.length;
   const stops = colors
@@ -45,21 +45,21 @@ function combineCategoryColors(categories: KnowledgePointCategory[]): string {
 
 export function HighlightedCorrectText({
   text,
-  knowledgePoints,
+  notes,
   className,
-  onEditKnowledgePoint,
+  onEditNote,
 }: HighlightedCorrectTextProps) {
-  const segments = buildHighlightSegments(text, knowledgePoints);
+  const segments = buildHighlightSegments(text, notes);
 
-  const ranges = useMemo<KnowledgePointRange[]>(() => {
-    return knowledgePoints
+  const ranges = useMemo<NoteRange[]>(() => {
+    return notes
       .map((kp) => {
         const start = text.indexOf(kp.capturedText);
         if (start === -1) return null;
-        return { knowledgePoint: kp, start, end: start + kp.capturedText.length };
+        return { note: kp, start, end: start + kp.capturedText.length };
       })
-      .filter((item): item is KnowledgePointRange => item !== null);
-  }, [text, knowledgePoints]);
+      .filter((item): item is NoteRange => item !== null);
+  }, [text, notes]);
 
   return (
     <span className={cn('inline leading-relaxed', className)}>
@@ -70,7 +70,7 @@ export function HighlightedCorrectText({
 
         const backgroundColor = combineCategoryColors(segment.categories);
         const textColors = segment.categories.map(
-          (category) => KNOWLEDGE_POINT_CATEGORY_MAP[category].colorClass.split(' ')[1]
+          (category) => NOTE_CATEGORY_MAP[category].colorClass.split(' ')[1]
         );
         const textColorClass = textColors[0];
 
@@ -83,14 +83,14 @@ export function HighlightedCorrectText({
             key={index}
             className={cn(
               'rounded px-0.5 font-medium',
-              onEditKnowledgePoint && matched && 'cursor-pointer hover:opacity-80',
+              onEditNote && matched && 'cursor-pointer hover:opacity-80',
               textColorClass
             )}
             style={{ backgroundColor }}
-            title={matched ? 'Click to edit knowledge point' : undefined}
+            title={matched ? 'Click to edit note' : undefined}
             onClick={() => {
               if (matched) {
-                onEditKnowledgePoint?.(matched.knowledgePoint);
+                onEditNote?.(matched.note);
               }
             }}
           >

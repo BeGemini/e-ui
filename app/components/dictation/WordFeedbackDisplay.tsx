@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { HighlightedCorrectText } from '@/app/components/knowledge-point/HighlightedCorrectText';
-import { KnowledgePointTextSelector } from '@/app/components/knowledge-point/KnowledgePointTextSelector';
-import { KnowledgePointCreateDialog } from '@/app/components/knowledge-point/KnowledgePointCreateDialog';
-import { KnowledgePointEditDialog } from '@/app/components/knowledge-point/KnowledgePointEditDialog';
-import { AiSearchResultDialog } from '@/app/components/knowledge-point/AiSearchResultDialog';
-import type { KnowledgePoint } from '@/lib/types';
+import { HighlightedCorrectText } from '@/app/components/note/HighlightedCorrectText';
+import { NoteTextSelector } from '@/app/components/note/NoteTextSelector';
+import { NoteEditDialog } from '@/app/components/note/NoteEditDialog';
+import { AiSearchResultDialog } from '@/app/components/note/AiSearchResultDialog';
+import type { Note } from '@/lib/types';
 
 interface WordFeedback {
   word: string;
@@ -21,8 +20,8 @@ interface WordFeedbackDisplayProps {
   isVisible: boolean;
   exerciseId: string;
   sentenceIndex: number;
-  knowledgePoints?: KnowledgePoint[];
-  onKnowledgePointCreated?: () => void;
+  notes?: Note[];
+  onNoteCreated?: () => void;
 }
 
 export function WordFeedbackDisplay({
@@ -32,13 +31,10 @@ export function WordFeedbackDisplay({
   isVisible,
   exerciseId,
   sentenceIndex,
-  knowledgePoints = [],
-  onKnowledgePointCreated,
+  notes = [],
+  onNoteCreated,
 }: WordFeedbackDisplayProps) {
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [createInitialDescription, setCreateInitialDescription] = useState('');
-  const [capturedText, setCapturedText] = useState('');
-  const [editingPoint, setEditingPoint] = useState<KnowledgePoint | null>(null);
+  const [editingPoint, setEditingPoint] = useState<Note | null>(null);
   const [aiSearchOpen, setAiSearchOpen] = useState(false);
   const [aiSearchText, setAiSearchText] = useState('');
 
@@ -59,25 +55,13 @@ export function WordFeedbackDisplay({
     }
   };
 
-  const handleCreate = (text: string) => {
-    setCapturedText(text);
-    setCreateInitialDescription('');
-    setCreateDialogOpen(true);
-  };
-
   const handleAiSearch = (text: string) => {
     setAiSearchText(text);
     setAiSearchOpen(true);
   };
 
-  const handleSaveAsKnowledgePoint = (description: string) => {
-    setCapturedText(aiSearchText);
-    setCreateInitialDescription(description);
-    setCreateDialogOpen(true);
-  };
-
-  const handleEdit = (knowledgePoint: KnowledgePoint) => {
-    setEditingPoint(knowledgePoint);
+  const handleEdit = (note: Note) => {
+    setEditingPoint(note);
   };
 
   return (
@@ -101,48 +85,35 @@ export function WordFeedbackDisplay({
       {/* Original Text */}
       <div className="space-y-2">
         <p className="text-sm font-medium text-gray-700">Correct Text:</p>
-        <KnowledgePointTextSelector sentenceText={correctText} onCreate={handleCreate} onAiSearch={handleAiSearch}>
+        <NoteTextSelector sentenceText={correctText} onAiSearch={handleAiSearch}>
           <div className="rounded bg-blue-50 p-3">
             <HighlightedCorrectText
               text={correctText}
-              knowledgePoints={knowledgePoints}
-              onEditKnowledgePoint={handleEdit}
+              notes={notes}
+              onEditNote={handleEdit}
             />
           </div>
-        </KnowledgePointTextSelector>
+        </NoteTextSelector>
       </div>
-
-      <KnowledgePointCreateDialog
-        key={`create-kp-${capturedText}-${createInitialDescription}`}
-        open={createDialogOpen}
-        capturedText={capturedText}
-        exerciseId={exerciseId}
-        sourceSentenceIndex={sentenceIndex}
-        sourceSentence={correctText}
-        initialDescription={createInitialDescription}
-        onOpenChange={setCreateDialogOpen}
-        onCreated={() => {
-          onKnowledgePointCreated?.();
-          setCreateDialogOpen(false);
-        }}
-      />
 
       <AiSearchResultDialog
         open={aiSearchOpen}
         capturedText={aiSearchText}
         sourceSentence={correctText}
+        exerciseId={exerciseId}
+        sourceSentenceIndex={sentenceIndex}
         onOpenChange={setAiSearchOpen}
-        onSaveAsKnowledgePoint={handleSaveAsKnowledgePoint}
+        onSaved={() => onNoteCreated?.()}
       />
 
-      <KnowledgePointEditDialog
-        key={editingPoint?.knowledgePointId ?? 'closed'}
+      <NoteEditDialog
+        key={editingPoint?.noteId ?? 'closed'}
         open={!!editingPoint}
-        knowledgePoint={editingPoint}
+        note={editingPoint}
         exerciseId={exerciseId}
         onOpenChange={() => setEditingPoint(null)}
         onSaved={() => {
-          onKnowledgePointCreated?.();
+          onNoteCreated?.();
           setEditingPoint(null);
         }}
       />

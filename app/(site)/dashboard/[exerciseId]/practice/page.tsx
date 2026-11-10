@@ -9,7 +9,7 @@ import { WordFeedbackDisplay } from '@/app/components/dictation/WordFeedbackDisp
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { usePracticeProgress } from '@/app/components/layout/PracticeProgress';
-import type { KnowledgePoint, PracticeAttempt, SaveAttemptRequest, WordFeedback } from '@/lib/types';
+import type { Note, PracticeAttempt, SaveAttemptRequest, WordFeedback } from '@/lib/types';
 
 interface Subtitle {
   index: number;
@@ -32,7 +32,7 @@ interface PracticeData {
     isCompleted: boolean;
     overallAccuracy?: number;
   };
-  knowledgePoints: KnowledgePoint[];
+  notes: Note[];
   attempts: PracticeAttempt[];
 }
 
@@ -441,9 +441,9 @@ export default function PracticePage() {
                   isVisible={true}
                   exerciseId={exerciseId}
                   sentenceIndex={currentSubtitle.index}
-                  knowledgePoints={practiceData?.knowledgePoints ?? []}
-                  onKnowledgePointCreated={() => {
-                    // Refresh practice data to include the new knowledge point
+                  notes={practiceData?.notes ?? []}
+                  onNoteCreated={() => {
+                    // Refresh practice data to include the new note
                     const fetchPracticeData = async () => {
                       const token = localStorage.getItem('token');
                       const response = await fetch(`/api/practice/${exerciseId}`, {

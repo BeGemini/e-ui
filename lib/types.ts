@@ -349,54 +349,54 @@ export interface CosConfig {
   secretKey: string;
 }
 
-// ===== KNOWLEDGE POINT ENTITIES =====
+// ===== NOTE ENTITIES =====
 
-export type KnowledgePointCategory = 'word' | 'phrase' | 'sentence';
+export type NoteCategory = 'word' | 'phrase' | 'sentence';
 
-export interface KnowledgePointCategoryConfig {
-  category: KnowledgePointCategory;
+export interface NoteCategoryConfig {
+  category: NoteCategory;
   label: string;
   colorClass: string;
   fallbackColor: string;
 }
 
-export interface KnowledgePoint {
-  knowledgePointId: string;
+export interface Note {
+  noteId: string;
   userId: string;
   exerciseId: string;
   sourceSentenceIndex: number;
   capturedText: string;
-  category: KnowledgePointCategory;
+  category: NoteCategory;
   description: string;
   createdDate: string;
   updatedDate: string;
 }
 
-export interface KnowledgePointCreateRequest {
+export interface NoteCreateRequest {
   sourceSentenceIndex: number;
   capturedText: string;
-  category: KnowledgePointCategory;
+  category: NoteCategory;
   description: string;
 }
 
-export interface KnowledgePointUpdateRequest {
-  category?: KnowledgePointCategory;
+export interface NoteUpdateRequest {
+  category?: NoteCategory;
   description?: string;
 }
 
-export interface ExerciseWithKnowledgePointCount {
-  knowledgePointCount: number;
+export interface ExerciseWithNoteCount {
+  noteCount: number;
 }
 
-// ===== AI KNOWLEDGE POINT TEACHING =====
+// ===== AI NOTE TEACHING =====
 
-export interface AiKnowledgePointTeachRequest {
+export interface AiNoteTeachRequest {
   capturedText: string;
-  category: KnowledgePointCategory;
+  category: NoteCategory;
   sourceSentence: string;
 }
 
-export interface AiKnowledgePointTeachResponse {
+export interface AiNoteTeachResponse {
   explanation: string;
 }
 
@@ -441,17 +441,17 @@ export interface EnvironmentVariables {
   DEEPSEEK_MODEL?: string;
 }
 
-// Knowledge point category colors (application constants)
-export const KNOWLEDGE_POINT_CATEGORIES: KnowledgePointCategoryConfig[] = [
+// Note category colors (application constants)
+export const NOTE_CATEGORIES: NoteCategoryConfig[] = [
   { category: 'word', label: 'Word', colorClass: 'bg-blue-200 text-blue-900', fallbackColor: '#bfdbfe' },
   { category: 'phrase', label: 'Phrase', colorClass: 'bg-green-200 text-green-900', fallbackColor: '#bbf7d0' },
   { category: 'sentence', label: 'Sentence', colorClass: 'bg-purple-200 text-purple-900', fallbackColor: '#e9d5ff' },
 ];
 
-export const KNOWLEDGE_POINT_CATEGORY_MAP: Record<KnowledgePointCategory, KnowledgePointCategoryConfig> = {
-  word: KNOWLEDGE_POINT_CATEGORIES[0],
-  phrase: KNOWLEDGE_POINT_CATEGORIES[1],
-  sentence: KNOWLEDGE_POINT_CATEGORIES[2],
+export const NOTE_CATEGORY_MAP: Record<NoteCategory, NoteCategoryConfig> = {
+  word: NOTE_CATEGORIES[0],
+  phrase: NOTE_CATEGORIES[1],
+  sentence: NOTE_CATEGORIES[2],
 };
 
 // ===== ADMIN CONTENT MANAGEMENT =====

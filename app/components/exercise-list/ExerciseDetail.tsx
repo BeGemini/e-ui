@@ -12,7 +12,7 @@ interface Exercise {
   completed?: boolean;
   currentProgress?: number;
   totalSentences?: number;
-  knowledgePointCount?: number;
+  noteCount?: number;
 }
 
 interface ExerciseDetailProps {
@@ -30,8 +30,8 @@ export default function ExerciseDetail({ exercise }: ExerciseDetailProps) {
     router.push(`/dashboard/${exercise.exerciseId}`);
   };
 
-  const handleViewKnowledgePoints = () => {
-    router.push(`/dashboard/${exercise.exerciseId}/knowledge-points`);
+  const handleViewNotes = () => {
+    router.push(`/dashboard/${exercise.exerciseId}/notes`);
   };
 
   const isStarted = (exercise.currentProgress ?? 0) > 0;
@@ -68,12 +68,12 @@ export default function ExerciseDetail({ exercise }: ExerciseDetailProps) {
           <Button
             size="sm"
             variant="outline"
-            onClick={handleViewKnowledgePoints}
+            onClick={handleViewNotes}
             className="flex items-center gap-1"
-            title="Knowledge points"
+            title="Notes"
           >
             <BookOpen className="h-3 w-3" />
-            <span>{exercise.knowledgePointCount ?? 0}</span>
+            <span>{exercise.noteCount ?? 0}</span>
           </Button>
           <Button
             size="sm"

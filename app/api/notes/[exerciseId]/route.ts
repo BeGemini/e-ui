@@ -4,8 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { verifySessionFromRequest } from '@/lib/session';
 import { initializeDatabase, query, queryOne, execute } from '@/lib/db';
 import { validate } from '@/lib/validation';
-import { KnowledgePointCreateSchema } from '@/lib/validation';
-import type { KnowledgePoint, KnowledgePointCreateRequest } from '@/lib/types';
+import { NoteCreateSchema } from '@/lib/validation';
+import type { Note, NoteCreateRequest } from '@/lib/types';
 
 export async function GET(
   request: NextRequest,
@@ -24,16 +24,16 @@ export async function GET(
 
     const { exerciseId } = await params;
 
-    const knowledgePointRows = await query<RowDataPacket>(
-      `SELECT * FROM KnowledgePoint
+    const noteRows = await query<RowDataPacket>(
+      `SELECT * FROM Note
        WHERE userId = ? AND exerciseId = ?
        ORDER BY createdDate DESC`,
       [session.userId, exerciseId]
     );
 
-    return NextResponse.json({ success: true, data: knowledgePointRows as KnowledgePoint[] });
+    return NextResponse.json({ success: true, data: noteRows as Note[] });
   } catch (error) {
-    console.error('Get knowledge points error:', error);
+    console.error('Get notes error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -58,11 +58,11 @@ export async function POST(
 
     const { exerciseId } = await params;
     const body = await request.json();
-    const data = await validate<KnowledgePointCreateRequest>(KnowledgePointCreateSchema, body);
+    const data = await validate<NoteCreateRequest>(NoteCreateSchema, body);
 
-    // Check for duplicate knowledge point
-    const existing = await queryOne<KnowledgePoint>(
-      `SELECT * FROM KnowledgePoint
+    // Check for duplicate note
+    const existing = await queryOne<Note>(
+      `SELECT * FROM Note
        WHERE userId = ? AND exerciseId = ? AND capturedText = ?`,
       [session.userId, exerciseId, data.capturedText]
     );
@@ -72,21 +72,21 @@ export async function POST(
         {
           success: true,
           data: existing,
-          message: 'Knowledge point already exists',
+          message: 'Note already exists',
         },
         { status: 200 }
       );
     }
 
-    const knowledgePointId = uuidv4();
+    const noteId = uuidv4();
 
     await execute(
-      `INSERT INTO KnowledgePoint (
-        knowledgePointId, userId, exerciseId, sourceSentenceIndex,
+      `INSERT INTO Note (
+        noteId, userId, exerciseId, sourceSentenceIndex,
         capturedText, category, description
       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
-        knowledgePointId,
+        noteId,
         session.userId,
         exerciseId,
         data.sourceSentenceIndex,
@@ -96,14 +96,14 @@ export async function POST(
       ]
     );
 
-    const created = await queryOne<KnowledgePoint>(
-      'SELECT * FROM KnowledgePoint WHERE knowledgePointId = ?',
-      [knowledgePointId]
+    const created = await queryOne<Note>(
+      'SELECT * FROM Note WHERE noteId = ?',
+      [noteId]
     );
 
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (error) {
-    console.error('Create knowledge point error:', error);
+    console.error('Create note error:', error);
     if (error instanceof Error && error.message.startsWith('Validation error')) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

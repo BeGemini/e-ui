@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionFromRequest } from '@/lib/session';
 import { initializeDatabase, queryOne, execute } from '@/lib/db';
 import { validate } from '@/lib/validation';
-import { KnowledgePointUpdateSchema } from '@/lib/validation';
-import type { KnowledgePoint, KnowledgePointUpdateRequest } from '@/lib/types';
+import { NoteUpdateSchema } from '@/lib/validation';
+import type { Note, NoteUpdateRequest } from '@/lib/types';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ exerciseId: string; knowledgePointId: string }> }
+  { params }: { params: Promise<{ exerciseId: string; noteId: string }> }
 ) {
   try {
     await initializeDatabase();
@@ -20,19 +20,19 @@ export async function PATCH(
       );
     }
 
-    const { exerciseId, knowledgePointId } = await params;
+    const { exerciseId, noteId } = await params;
     const body = await request.json();
-    const data = await validate<KnowledgePointUpdateRequest>(KnowledgePointUpdateSchema, body);
+    const data = await validate<NoteUpdateRequest>(NoteUpdateSchema, body);
 
-    const existing = await queryOne<KnowledgePoint>(
-      `SELECT * FROM KnowledgePoint
-       WHERE knowledgePointId = ? AND userId = ? AND exerciseId = ?`,
-      [knowledgePointId, session.userId, exerciseId]
+    const existing = await queryOne<Note>(
+      `SELECT * FROM Note
+       WHERE noteId = ? AND userId = ? AND exerciseId = ?`,
+      [noteId, session.userId, exerciseId]
     );
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Knowledge point not found' },
+        { error: 'Note not found' },
         { status: 404 }
       );
     }
@@ -58,18 +58,18 @@ export async function PATCH(
     }
 
     await execute(
-      `UPDATE KnowledgePoint SET ${updates.join(', ')} WHERE knowledgePointId = ?`,
-      [...values, knowledgePointId]
+      `UPDATE Note SET ${updates.join(', ')} WHERE noteId = ?`,
+      [...values, noteId]
     );
 
-    const updated = await queryOne<KnowledgePoint>(
-      'SELECT * FROM KnowledgePoint WHERE knowledgePointId = ?',
-      [knowledgePointId]
+    const updated = await queryOne<Note>(
+      'SELECT * FROM Note WHERE noteId = ?',
+      [noteId]
     );
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
-    console.error('Update knowledge point error:', error);
+    console.error('Update note error:', error);
     if (error instanceof Error && error.message.startsWith('Validation error')) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
@@ -82,7 +82,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ exerciseId: string; knowledgePointId: string }> }
+  { params }: { params: Promise<{ exerciseId: string; noteId: string }> }
 ) {
   try {
     await initializeDatabase();
@@ -95,32 +95,32 @@ export async function DELETE(
       );
     }
 
-    const { exerciseId, knowledgePointId } = await params;
+    const { exerciseId, noteId } = await params;
 
-    const existing = await queryOne<KnowledgePoint>(
-      `SELECT * FROM KnowledgePoint
-       WHERE knowledgePointId = ? AND userId = ? AND exerciseId = ?`,
-      [knowledgePointId, session.userId, exerciseId]
+    const existing = await queryOne<Note>(
+      `SELECT * FROM Note
+       WHERE noteId = ? AND userId = ? AND exerciseId = ?`,
+      [noteId, session.userId, exerciseId]
     );
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Knowledge point not found' },
+        { error: 'Note not found' },
         { status: 404 }
       );
     }
 
     await execute(
-      'DELETE FROM KnowledgePoint WHERE knowledgePointId = ?',
-      [knowledgePointId]
+      'DELETE FROM Note WHERE noteId = ?',
+      [noteId]
     );
 
     return NextResponse.json({
       success: true,
-      message: 'Knowledge point deleted',
+      message: 'Note deleted',
     });
   } catch (error) {
-    console.error('Delete knowledge point error:', error);
+    console.error('Delete note error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

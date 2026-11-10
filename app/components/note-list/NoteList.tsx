@@ -21,34 +21,34 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
-import { KNOWLEDGE_POINT_CATEGORIES } from '@/lib/types';
-import type { KnowledgePoint, KnowledgePointCategory } from '@/lib/types';
+import { NOTE_CATEGORIES } from '@/lib/types';
+import type { Note, NoteCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Pencil, Trash2 } from 'lucide-react';
 
-interface KnowledgePointListProps {
+interface NoteListProps {
   exerciseId: string;
-  knowledgePoints: KnowledgePoint[];
-  onKnowledgePointsChange: () => void;
+  notes: Note[];
+  onNotesChange: () => void;
 }
 
-export function KnowledgePointList({
+export function NoteList({
   exerciseId,
-  knowledgePoints,
-  onKnowledgePointsChange,
-}: KnowledgePointListProps) {
-  const [editingPoint, setEditingPoint] = useState<KnowledgePoint | null>(null);
-  const [editCategory, setEditCategory] = useState<KnowledgePointCategory>('word');
+  notes,
+  onNotesChange,
+}: NoteListProps) {
+  const [editingPoint, setEditingPoint] = useState<Note | null>(null);
+  const [editCategory, setEditCategory] = useState<NoteCategory>('word');
   const [editDescription, setEditDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [deletingPoint, setDeletingPoint] = useState<KnowledgePoint | null>(null);
+  const [deletingPoint, setDeletingPoint] = useState<Note | null>(null);
 
-  const grouped = KNOWLEDGE_POINT_CATEGORIES.map((config) => ({
+  const grouped = NOTE_CATEGORIES.map((config) => ({
     ...config,
-    items: knowledgePoints.filter((kp) => kp.category === config.category),
+    items: notes.filter((kp) => kp.category === config.category),
   })).filter((group) => group.items.length > 0);
 
-  const handleEdit = (kp: KnowledgePoint) => {
+  const handleEdit = (kp: Note) => {
     setEditingPoint(kp);
     setEditCategory(kp.category);
     setEditDescription(kp.description);
@@ -61,7 +61,7 @@ export function KnowledgePointList({
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `/api/knowledge-points/${exerciseId}/${editingPoint.knowledgePointId}`,
+        `/api/notes/${exerciseId}/${editingPoint.noteId}`,
         {
           method: 'PATCH',
           headers: {
@@ -77,13 +77,13 @@ export function KnowledgePointList({
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to update knowledge point');
+        throw new Error(data.error || 'Failed to update note');
       }
 
       setEditingPoint(null);
-      onKnowledgePointsChange();
+      onNotesChange();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update knowledge point');
+      alert(err instanceof Error ? err.message : 'Failed to update note');
     } finally {
       setIsSubmitting(false);
     }
@@ -96,7 +96,7 @@ export function KnowledgePointList({
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `/api/knowledge-points/${exerciseId}/${deletingPoint.knowledgePointId}`,
+        `/api/notes/${exerciseId}/${deletingPoint.noteId}`,
         {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
@@ -105,27 +105,27 @@ export function KnowledgePointList({
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to delete knowledge point');
+        throw new Error(data.error || 'Failed to delete note');
       }
 
       setDeletingPoint(null);
-      onKnowledgePointsChange();
+      onNotesChange();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete knowledge point');
+      alert(err instanceof Error ? err.message : 'Failed to delete note');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (knowledgePoints.length === 0) {
+  if (notes.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>No Knowledge Points Yet</CardTitle>
+          <CardTitle>No Notes Yet</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Start practicing and create knowledge points from the Correct Text.
+            Start practicing and create notes from the Correct Text.
           </p>
         </CardContent>
       </Card>
@@ -145,7 +145,7 @@ export function KnowledgePointList({
           <CardContent className="space-y-3">
             {group.items.map((kp) => (
               <div
-                key={kp.knowledgePointId}
+                key={kp.noteId}
                 className="rounded-md border p-3 hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -183,7 +183,7 @@ export function KnowledgePointList({
       <Drawer open={!!editingPoint} onOpenChange={() => setEditingPoint(null)} swipeDirection="right">
         <DrawerContent className="sm:max-w-md">
           <DrawerHeader>
-            <DrawerTitle>Edit Knowledge Point</DrawerTitle>
+            <DrawerTitle>Edit Note</DrawerTitle>
             <DrawerDescription>
               Update the category and note for &quot;{editingPoint?.capturedText}&quot;.
             </DrawerDescription>
@@ -193,7 +193,7 @@ export function KnowledgePointList({
             <div className="space-y-2">
               <label className="text-sm font-medium">Category</label>
               <div className="flex gap-2">
-                {KNOWLEDGE_POINT_CATEGORIES.map((config) => (
+                {NOTE_CATEGORIES.map((config) => (
                   <Button
                     key={config.category}
                     type="button"
@@ -238,7 +238,7 @@ export function KnowledgePointList({
       <Dialog open={!!deletingPoint} onOpenChange={() => setDeletingPoint(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete Knowledge Point</DialogTitle>
+            <DialogTitle>Delete Note</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete &quot;{deletingPoint?.capturedText}&quot;? This action cannot be undone.
             </DialogDescription>

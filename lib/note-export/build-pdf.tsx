@@ -1,5 +1,5 @@
 /**
- * PDF export for knowledge points. Loaded on demand via dynamic import() from a client component.
+ * PDF export for notes. Loaded on demand via dynamic import() from a client component.
  *
  * Descriptions are markdown, parsed with remark-parse (CommonMark, same subset that
  * react-markdown renders in the UI) and converted to @react-pdf/renderer elements.
@@ -16,8 +16,8 @@ import type { PhrasingContent, Root, RootContent } from 'mdast';
 import { containsCjk, formatLocalDate } from '@/lib/sentence-export';
 import {
   groupByCategory,
-  type KnowledgePointExportInput,
-} from '@/lib/knowledge-point-export';
+  type NoteExportInput,
+} from '@/lib/note-export';
 
 const FONT_LATIN = 'NotoSans';
 const FONT_CJK = 'NotoSansSC';
@@ -41,7 +41,7 @@ Font.registerHyphenationCallback((word) => [word]);
 
 const markdownParser = unified().use(remarkParse);
 
-// Category badge colors matching KNOWLEDGE_POINT_CATEGORIES colorClass (bg-*-200 / text-*-900).
+// Category badge colors matching NOTE_CATEGORIES colorClass (bg-*-200 / text-*-900).
 const CATEGORY_COLORS: Record<string, { background: string; text: string }> = {
   word: { background: '#BFDBFE', text: '#1E3A8A' },
   phrase: { background: '#BBF7D0', text: '#14532D' },
@@ -199,21 +199,21 @@ function Markdown({ children }: { children: string }) {
   return <View>{renderBlocks(tree.children)}</View>;
 }
 
-function KnowledgePointsPdf({ title, exportedAt, knowledgePoints }: KnowledgePointExportInput) {
+function NotesPdf({ title, exportedAt, notes }: NoteExportInput) {
   const hasCjk =
     containsCjk(title) ||
-    knowledgePoints.some((kp) => containsCjk(kp.capturedText) || containsCjk(kp.description));
+    notes.some((kp) => containsCjk(kp.capturedText) || containsCjk(kp.description));
   // NotoSansSC has no IPA glyphs (phonetics like /krɪˈeɪʃn/ render as garbage), so keep
   // NotoSans first and let CJK characters fall back to NotoSansSC per glyph.
   const fontFamily = hasCjk ? [FONT_LATIN, FONT_CJK] : FONT_LATIN;
-  const groups = groupByCategory(knowledgePoints);
+  const groups = groupByCategory(notes);
 
   return (
     <Document title={title}>
       <Page size="A4" wrap style={[styles.page, { fontFamily }]}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.subtitle}>
-          Knowledge Points · Exported on {formatLocalDate(exportedAt)} · {knowledgePoints.length} items
+          Notes · Exported on {formatLocalDate(exportedAt)} · {notes.length} items
         </Text>
         {groups.map((group) => {
           const colors = CATEGORY_COLORS[group.category];
@@ -225,7 +225,7 @@ function KnowledgePointsPdf({ title, exportedAt, knowledgePoints }: KnowledgePoi
                 </Text>
               </View>
               {group.items.map((kp) => (
-                <View key={kp.knowledgePointId} style={styles.item}>
+                <View key={kp.noteId} style={styles.item}>
                   <Text style={styles.captured}>{kp.capturedText}</Text>
                   <Markdown>{kp.description}</Markdown>
                 </View>
@@ -238,7 +238,7 @@ function KnowledgePointsPdf({ title, exportedAt, knowledgePoints }: KnowledgePoi
   );
 }
 
-export async function build(input: KnowledgePointExportInput): Promise<Blob> {
-  const blob = await pdf(<KnowledgePointsPdf {...input} />).toBlob();
+export async function build(input: NoteExportInput): Promise<Blob> {
+  const blob = await pdf(<NotesPdf {...input} />).toBlob();
   return blob.type ? blob : new Blob([blob], { type: 'application/pdf' });
 }

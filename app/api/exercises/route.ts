@@ -7,7 +7,7 @@ import { Series, Season, Episode, Exercise, UserExerciseProgress } from '@/lib/t
 interface ExerciseInHierarchy extends Exercise {
   completed?: boolean;
   currentProgress?: number;
-  knowledgePointCount?: number;
+  noteCount?: number;
 }
 
 interface EpisodeInHierarchy extends Episode {
@@ -95,9 +95,9 @@ export async function GET(request: NextRequest) {
               [session.userId, exercise.exerciseId]
             );
 
-            // Get user's knowledge point count for this exercise
-            const knowledgePointCountResult = await queryOne<{ count: number }>(
-              `SELECT COUNT(*) as count FROM KnowledgePoint
+            // Get user's note count for this exercise
+            const noteCountResult = await queryOne<{ count: number }>(
+              `SELECT COUNT(*) as count FROM Note
                WHERE userId = ? AND exerciseId = ?`,
               [session.userId, exercise.exerciseId]
             );
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
               // `{completed && ...}` never renders a literal "0" on the client
               completed: Boolean(progress?.isCompleted),
               currentProgress: progress?.currentSentenceIndex ?? 0,
-              knowledgePointCount: knowledgePointCountResult?.count ?? 0,
+              noteCount: noteCountResult?.count ?? 0,
             };
 
             exercisesWithProgress.push(exerciseData);

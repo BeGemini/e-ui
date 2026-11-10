@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Sparkles } from 'lucide-react';
-import { normalizeSelectionToWholeWords } from '@/lib/knowledge-point-utils';
+import { Sparkles } from 'lucide-react';
+import { normalizeSelectionToWholeWords } from '@/lib/note-utils';
 
 interface SelectionState {
   text: string;
@@ -11,19 +11,17 @@ interface SelectionState {
   y: number;
 }
 
-interface KnowledgePointTextSelectorProps {
+interface NoteTextSelectorProps {
   sentenceText: string;
   children: React.ReactNode;
-  onCreate: (capturedText: string) => void;
-  onAiSearch?: (capturedText: string) => void;
+  onAiSearch: (capturedText: string) => void;
 }
 
-export function KnowledgePointTextSelector({
+export function NoteTextSelector({
   sentenceText,
   children,
-  onCreate,
   onAiSearch,
-}: KnowledgePointTextSelectorProps) {
+}: NoteTextSelectorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState<SelectionState | null>(null);
 
@@ -70,15 +68,8 @@ export function KnowledgePointTextSelector({
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, [handleSelectionChange]);
 
-  const handleCreate = () => {
-    if (!selection) return;
-    onCreate(selection.text);
-    setSelection(null);
-    window.getSelection()?.removeAllRanges();
-  };
-
   const handleAiSearch = () => {
-    if (!selection || !onAiSearch) return;
+    if (!selection) return;
     onAiSearch(selection.text);
     setSelection(null);
     window.getSelection()?.removeAllRanges();
@@ -107,25 +98,14 @@ export function KnowledgePointTextSelector({
         >
           <Button
             size="sm"
+            variant="outline"
             onMouseDown={(e) => e.stopPropagation()}
-            onClick={handleCreate}
-            className="shadow-sm"
+            onClick={handleAiSearch}
+            className="gap-1 border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800"
           >
-            <Plus className="mr-1 h-4 w-4" />
-            New Knowledge Point
+            <Sparkles className="h-4 w-4" />
+            AI Search
           </Button>
-          {onAiSearch && (
-            <Button
-              size="sm"
-              variant="outline"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={handleAiSearch}
-              className="gap-1 border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800"
-            >
-              <Sparkles className="h-4 w-4" />
-              AI Search
-            </Button>
-          )}
         </div>
       )}
     </div>

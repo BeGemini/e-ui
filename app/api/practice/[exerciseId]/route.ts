@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { RowDataPacket } from 'mysql2/promise';
 import { verifySessionFromRequest } from '@/lib/session';
 import { initializeDatabase, query, queryOne, execute } from '@/lib/db';
-import { Exercise, UserSubtitleConfig, ParsedSubtitle, EffectiveSubtitle, UserExerciseProgress, KnowledgePoint, PracticeAttempt } from '@/lib/types';
+import { Exercise, UserSubtitleConfig, ParsedSubtitle, EffectiveSubtitle, UserExerciseProgress, Note, PracticeAttempt } from '@/lib/types';
 import { downloadFile } from '@/lib/cos-client';
 import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
 import { applySubtitleConfig, isExternalVideoUrl, SubtitleConfigInput } from '@/lib/utils';
@@ -16,7 +16,7 @@ interface ExerciseWithSubtitles extends Exercise {
     currentSentenceIndex: number;
     isCompleted: boolean;
   } | null;
-  knowledgePoints: KnowledgePoint[];
+  notes: Note[];
   attempts: PracticeAttempt[];
 }
 
@@ -93,14 +93,14 @@ export async function GET(
       [session.userId, exerciseId]
     );
 
-    // Fetch user's knowledge points for this exercise
-    const knowledgePointRows = await query<RowDataPacket>(
-      `SELECT * FROM KnowledgePoint
+    // Fetch user's notes for this exercise
+    const noteRows = await query<RowDataPacket>(
+      `SELECT * FROM Note
        WHERE userId = ? AND exerciseId = ?
        ORDER BY createdDate DESC`,
       [session.userId, exerciseId]
     );
-    const knowledgePoints = knowledgePointRows as KnowledgePoint[];
+    const notes = noteRows as Note[];
 
     // Apply user's subtitle configuration (merge/skip)
     let processedSubtitles: EffectiveSubtitle[] = subtitles.map((sub, idx) => ({
@@ -168,7 +168,7 @@ export async function GET(
         currentSentenceIndex: 0,
         isCompleted: false,
       },
-      knowledgePoints,
+      notes,
       attempts: await listPracticeAttempts(session.userId, exerciseId),
     };
 

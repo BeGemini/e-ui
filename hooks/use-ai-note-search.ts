@@ -1,23 +1,23 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import type { AiKnowledgePointTeachRequest, AiKnowledgePointTeachResponse } from '@/lib/types';
+import type { AiNoteTeachRequest, AiNoteTeachResponse } from '@/lib/types';
 
-interface UseAiKnowledgePointSearchReturn {
+interface UseAiNoteSearchReturn {
   result: string;
   isGenerating: boolean;
   error: string;
-  search: (params: AiKnowledgePointTeachRequest) => Promise<string>;
+  search: (params: AiNoteTeachRequest) => Promise<string>;
   reset: () => void;
 }
 
-export function useAiKnowledgePointSearch(): UseAiKnowledgePointSearchReturn {
+export function useAiNoteSearch(): UseAiNoteSearchReturn {
   const [result, setResult] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
   const isGeneratingRef = useRef(false);
 
-  const search = useCallback(async (params: AiKnowledgePointTeachRequest) => {
+  const search = useCallback(async (params: AiNoteTeachRequest) => {
     if (isGeneratingRef.current) return '';
 
     isGeneratingRef.current = true;
@@ -26,7 +26,7 @@ export function useAiKnowledgePointSearch(): UseAiKnowledgePointSearchReturn {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/ai/knowledge-point-teach', {
+      const response = await fetch('/api/ai/note-teach', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -40,7 +40,7 @@ export function useAiKnowledgePointSearch(): UseAiKnowledgePointSearchReturn {
         throw new Error(data.error || 'Failed to generate AI explanation');
       }
 
-      const json = (await response.json()) as { data: AiKnowledgePointTeachResponse };
+      const json = (await response.json()) as { data: AiNoteTeachResponse };
       setResult(json.data.explanation);
       return json.data.explanation;
     } catch (err) {

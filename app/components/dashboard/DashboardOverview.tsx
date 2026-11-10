@@ -20,13 +20,13 @@ interface DashboardStats {
     practiceSeconds: number;
     sentencesPracticed: number;
     avgAccuracy: number | null;
-    knowledgePointsCreated: number;
+    notesCreated: number;
   };
   streakDays: number;
   weeklyTrend: { date: string; sentences: number; avgAccuracy: number | null }[];
   totals: {
     sentencesPracticed: number;
-    knowledgePoints: number;
+    notes: number;
     exercisesCompleted: number;
   };
   continuePracticing: {
@@ -121,8 +121,8 @@ export default function DashboardOverview() {
       chip: 'bg-amber-50 text-amber-600',
     },
     {
-      label: 'Knowledge points today',
-      value: String(todayStats.knowledgePointsCreated),
+      label: 'Notes today',
+      value: String(todayStats.notesCreated),
       icon: Lightbulb,
       chip: 'bg-violet-50 text-violet-600',
     },
@@ -265,7 +265,7 @@ export default function DashboardOverview() {
               </div>
               <div>
                 <p className="text-lg font-semibold text-gray-900 tabular-nums">
-                  {stats.totals.knowledgePoints}
+                  {stats.totals.notes}
                 </p>
                 <p className="text-xs text-gray-500">Knowledge</p>
               </div>

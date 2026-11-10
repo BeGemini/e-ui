@@ -13,35 +13,35 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Pencil, Eye } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { KNOWLEDGE_POINT_CATEGORIES } from '@/lib/types';
-import type { KnowledgePoint, KnowledgePointCategory } from '@/lib/types';
+import { NOTE_CATEGORIES } from '@/lib/types';
+import type { Note, NoteCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-interface KnowledgePointEditDialogProps {
+interface NoteEditDialogProps {
   open: boolean;
-  knowledgePoint: KnowledgePoint | null;
+  note: Note | null;
   exerciseId: string;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }
 
-export function KnowledgePointEditDialog({
+export function NoteEditDialog({
   open,
-  knowledgePoint,
+  note,
   exerciseId,
   onOpenChange,
   onSaved,
-}: KnowledgePointEditDialogProps) {
-  const [category, setCategory] = useState<KnowledgePointCategory>(
-    knowledgePoint?.category ?? 'word'
+}: NoteEditDialogProps) {
+  const [category, setCategory] = useState<NoteCategory>(
+    note?.category ?? 'word'
   );
-  const [description, setDescription] = useState(knowledgePoint?.description ?? '');
+  const [description, setDescription] = useState(note?.description ?? '');
   const [isPreview, setIsPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async () => {
-    if (!knowledgePoint) return;
+    if (!note) return;
 
     if (!description.trim()) {
       setError('Please enter a note');
@@ -54,7 +54,7 @@ export function KnowledgePointEditDialog({
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `/api/knowledge-points/${exerciseId}/${knowledgePoint.knowledgePointId}`,
+        `/api/notes/${exerciseId}/${note.noteId}`,
         {
           method: 'PATCH',
           headers: {
@@ -70,13 +70,13 @@ export function KnowledgePointEditDialog({
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to update knowledge point');
+        throw new Error(data.error || 'Failed to update note');
       }
 
       onOpenChange(false);
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update knowledge point');
+      setError(err instanceof Error ? err.message : 'Failed to update note');
     } finally {
       setIsSubmitting(false);
     }
@@ -92,9 +92,9 @@ export function KnowledgePointEditDialog({
     <Drawer open={open} onOpenChange={handleClose} swipeDirection="right">
       <DrawerContent className="sm:max-w-md">
         <DrawerHeader>
-          <DrawerTitle>Edit Knowledge Point</DrawerTitle>
+          <DrawerTitle>Edit Note</DrawerTitle>
           <DrawerDescription>
-            Update the category and note for &quot;{knowledgePoint?.capturedText}&quot;.
+            Update the category and note for &quot;{note?.capturedText}&quot;.
           </DrawerDescription>
         </DrawerHeader>
 
@@ -102,7 +102,7 @@ export function KnowledgePointEditDialog({
           <div className="space-y-2">
             <label className="text-sm font-medium">Category</label>
             <div className="flex gap-2">
-              {KNOWLEDGE_POINT_CATEGORIES.map((config) => (
+              {NOTE_CATEGORIES.map((config) => (
                 <Button
                   key={config.category}
                   type="button"

@@ -3,13 +3,13 @@ import {
   normalizeSelectionToWholeWords,
   isValidCapturedText,
   buildHighlightSegments,
-  getMatchingKnowledgePoints,
-} from '@/lib/knowledge-point-utils';
-import type { KnowledgePoint } from '@/lib/types';
+  getMatchingNotes,
+} from '@/lib/note-utils';
+import type { Note } from '@/lib/types';
 
-function createKnowledgePoint(overrides: Partial<KnowledgePoint> = {}): KnowledgePoint {
+function createNote(overrides: Partial<Note> = {}): Note {
   return {
-    knowledgePointId: 'kp-1',
+    noteId: 'kp-1',
     userId: 'user-1',
     exerciseId: 'ex-1',
     sourceSentenceIndex: 0,
@@ -22,7 +22,7 @@ function createKnowledgePoint(overrides: Partial<KnowledgePoint> = {}): Knowledg
   };
 }
 
-describe('Knowledge Point Utilities', () => {
+describe('Note Utilities', () => {
   describe('normalizeSelectionToWholeWords', () => {
     it('returns null for empty or invalid selections', () => {
       const text = 'Hello world';
@@ -72,22 +72,22 @@ describe('Knowledge Point Utilities', () => {
   });
 
   describe('buildHighlightSegments', () => {
-    it('returns a single unhighlighted segment when no knowledge points match', () => {
+    it('returns a single unhighlighted segment when no notes match', () => {
       const text = 'Hello world';
       const segments = buildHighlightSegments(text, []);
       expect(segments).toEqual([{ text, start: 0, end: text.length, categories: [] }]);
     });
 
-    it('ignores knowledge points whose captured text is not in the sentence', () => {
+    it('ignores notes whose captured text is not in the sentence', () => {
       const text = 'Hello world';
-      const kp = createKnowledgePoint({ capturedText: 'foo', category: 'word' });
+      const kp = createNote({ capturedText: 'foo', category: 'word' });
       const segments = buildHighlightSegments(text, [kp]);
       expect(segments).toEqual([{ text, start: 0, end: text.length, categories: [] }]);
     });
 
-    it('creates a highlighted segment for a single knowledge point', () => {
+    it('creates a highlighted segment for a single note', () => {
       const text = 'Hello world';
-      const kp = createKnowledgePoint({ capturedText: 'Hello', category: 'word' });
+      const kp = createNote({ capturedText: 'Hello', category: 'word' });
       const segments = buildHighlightSegments(text, [kp]);
 
       expect(segments).toHaveLength(2);
@@ -95,10 +95,10 @@ describe('Knowledge Point Utilities', () => {
       expect(segments[1]).toEqual({ text: ' world', start: 5, end: 11, categories: [] });
     });
 
-    it('combines categories for overlapping knowledge points', () => {
+    it('combines categories for overlapping notes', () => {
       const text = 'The quick brown fox jumps';
-      const kp1 = createKnowledgePoint({ capturedText: 'quick brown fox', category: 'phrase' });
-      const kp2 = createKnowledgePoint({ capturedText: 'brown fox jumps', category: 'sentence' });
+      const kp1 = createNote({ capturedText: 'quick brown fox', category: 'phrase' });
+      const kp2 = createNote({ capturedText: 'brown fox jumps', category: 'sentence' });
       const segments = buildHighlightSegments(text, [kp1, kp2]);
 
       const overlap = segments.find((s) => s.text === 'brown fox');
@@ -108,8 +108,8 @@ describe('Knowledge Point Utilities', () => {
 
     it('deduplicates repeated categories', () => {
       const text = 'Hello world';
-      const kp1 = createKnowledgePoint({ capturedText: 'Hello', category: 'word' });
-      const kp2 = createKnowledgePoint({ capturedText: 'Hello world', category: 'word' });
+      const kp1 = createNote({ capturedText: 'Hello', category: 'word' });
+      const kp2 = createNote({ capturedText: 'Hello world', category: 'word' });
       const segments = buildHighlightSegments(text, [kp1, kp2]);
 
       const helloSegment = segments.find((s) => s.text === 'Hello');
@@ -117,13 +117,13 @@ describe('Knowledge Point Utilities', () => {
     });
   });
 
-  describe('getMatchingKnowledgePoints', () => {
-    it('returns only knowledge points whose captured text is in the sentence', () => {
+  describe('getMatchingNotes', () => {
+    it('returns only notes whose captured text is in the sentence', () => {
       const text = 'Hello world';
-      const kp1 = createKnowledgePoint({ capturedText: 'Hello', category: 'word' });
-      const kp2 = createKnowledgePoint({ capturedText: 'foo', category: 'word' });
+      const kp1 = createNote({ capturedText: 'Hello', category: 'word' });
+      const kp2 = createNote({ capturedText: 'foo', category: 'word' });
 
-      const result = getMatchingKnowledgePoints(text, [kp1, kp2]);
+      const result = getMatchingNotes(text, [kp1, kp2]);
       expect(result).toHaveLength(1);
       expect(result[0].capturedText).toBe('Hello');
     });

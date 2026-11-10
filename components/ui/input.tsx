@@ -9,7 +9,7 @@ const inputVariants = cva(
     variants: {
       size: {
         default: "h-8",
-        lg: "h-12 rounded-xl border-gray-200 bg-white px-4 text-sm shadow-none focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20 md:text-sm",
+        lg: "h-12 rounded-xl border-gray-200 bg-white px-4 text-sm shadow-none focus-visible:border-blue-600 focus-visible:ring-blue-600/20 md:text-sm",
       },
     },
     defaultVariants: {

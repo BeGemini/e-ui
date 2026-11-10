@@ -82,7 +82,7 @@ export default function Home() {
     return (
       <div className="flex flex-1 items-center justify-center bg-[#f7f8f8]">
         <div className="text-center">
-          <div className="inline-block h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-500"></div>
+          <div className="inline-block h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
           <p className="mt-4 text-gray-500">Loading...</p>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function Home() {
               setIsLogin(!isLogin);
               setError('');
             }}
-            className="ml-1 font-medium text-emerald-600 hover:text-emerald-700"
+            className="ml-1 font-medium text-blue-600 hover:text-blue-700"
           >
             {isLogin ? 'Sign up free' : 'Log in'}
           </button>

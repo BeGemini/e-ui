@@ -85,11 +85,11 @@ export async function GET(request: NextRequest) {
     const [
       todayRow,
       todayAttempts,
-      todayKnowledgePoints,
+      todayNotes,
       trendRows,
       activeDays,
       totalSentences,
-      totalKnowledgePoints,
+      totalNotes,
       completedExercises,
       continueRows,
       lastPracticedRow,
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
         [userId]
       ),
       queryValue<number>(
-        'SELECT COUNT(*) AS cnt FROM KnowledgePoint WHERE userId = ? AND DATE(createdDate) = CURDATE()',
+        'SELECT COUNT(*) AS cnt FROM Note WHERE userId = ? AND DATE(createdDate) = CURDATE()',
         [userId]
       ),
       query<TrendRow>(
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
         [userId]
       ),
       queryValue<number>(
-        'SELECT COUNT(*) AS cnt FROM KnowledgePoint WHERE userId = ?',
+        'SELECT COUNT(*) AS cnt FROM Note WHERE userId = ?',
         [userId]
       ),
       queryValue<number>(
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
           practiceSeconds: estimatePracticeSeconds(timestamps),
           sentencesPracticed: todayAttempts.length,
           avgAccuracy,
-          knowledgePointsCreated: Number(todayKnowledgePoints ?? 0),
+          notesCreated: Number(todayNotes ?? 0),
         },
         streakDays: computeStreakDays(activeDays.map((row) => row.day), today),
         weeklyTrend: trendRows.map((row) => ({
@@ -206,7 +206,7 @@ export async function GET(request: NextRequest) {
         })),
         totals: {
           sentencesPracticed: Number(totalSentences ?? 0),
-          knowledgePoints: Number(totalKnowledgePoints ?? 0),
+          notes: Number(totalNotes ?? 0),
           exercisesCompleted: Number(completedExercises ?? 0),
         },
         continuePracticing: continueRows.map((row) => ({

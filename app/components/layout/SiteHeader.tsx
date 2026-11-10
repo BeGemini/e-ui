@@ -97,7 +97,7 @@ export default function SiteHeader() {
             <Link href="/" aria-label="Go to home page">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://shadowing-videos-1324158827.cos.ap-guangzhou.myqcloud.com/assets/logo.png"
+                src="/logo.png"
                 alt="Logo"
                 className="h-10 w-10 rounded-lg"
               />
@@ -150,11 +150,11 @@ export default function SiteHeader() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Knowledge Points"
-                  title="Knowledge Points"
+                  aria-label="Notes"
+                  title="Notes"
                   render={
                     <Link
-                      href={`/dashboard/${practiceExerciseId}/knowledge-points`}
+                      href={`/dashboard/${practiceExerciseId}/notes`}
                     />
                   }
                   nativeButton={false}
@@ -200,11 +200,11 @@ export default function SiteHeader() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Knowledge Points"
-                  title="Knowledge Points"
+                  aria-label="Notes"
+                  title="Notes"
                   render={
                     <Link
-                      href={`/dashboard/${detailExerciseId}/knowledge-points`}
+                      href={`/dashboard/${detailExerciseId}/notes`}
                     />
                   }
                   nativeButton={false}
@@ -244,7 +244,7 @@ export default function SiteHeader() {
       </div>
       {practiceExerciseId && progress && (
         <div
-          className="absolute bottom-0 left-0 h-0.5 bg-green-500 transition-all duration-300"
+          className="absolute bottom-0 left-0 h-0.5 bg-blue-600 transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       )}

@@ -1,12 +1,12 @@
 /**
- * DeepSeek API client for AI knowledge point teaching.
+ * DeepSeek API client for AI note teaching.
  * Uses the OpenAI-compatible chat completions endpoint.
  */
 
 import type {
-  AiKnowledgePointTeachRequest,
+  AiNoteTeachRequest,
   DeepSeekResponse,
-  KnowledgePointCategory,
+  NoteCategory,
 } from './types';
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
@@ -20,7 +20,7 @@ const WORD_SECTION = `
 字典风格一行展示：先给音标（美式在前、英式在后，直接写出 /.../，不要加"音标"等标签），然后跟词性缩写（n.、v.、adj.、adv. 等词典缩写，多个词性都列出），如：/ˈæpl/ /ˈæpəl/ n.
 `;
 
-function buildSystemPrompt(category: KnowledgePointCategory): string {
+function buildSystemPrompt(category: NoteCategory): string {
   const sections = category === 'word' ? '三个章节' : '两个章节';
   const wordExtra = category === 'word' ? WORD_SECTION : '';
 
@@ -59,7 +59,7 @@ ${wordExtra}
 
 function buildUserPrompt(
   capturedText: string,
-  category: KnowledgePointCategory,
+  category: NoteCategory,
   sourceSentence: string
 ): string {
   const categoryLabel =
@@ -77,16 +77,16 @@ function truncateExplanation(explanation: string): string {
   return explanation.slice(0, MAX_DESCRIPTION_LENGTH);
 }
 
-export interface CallDeepSeekForKnowledgePointResult {
+export interface CallDeepSeekForNoteResult {
   explanation: string;
 }
 
 /**
- * Calls DeepSeek to generate a structured Markdown explanation for a knowledge point.
+ * Calls DeepSeek to generate a structured Markdown explanation for a note.
  */
-export async function callDeepSeekForKnowledgePoint(
-  request: AiKnowledgePointTeachRequest
-): Promise<CallDeepSeekForKnowledgePointResult> {
+export async function callDeepSeekForNote(
+  request: AiNoteTeachRequest
+): Promise<CallDeepSeekForNoteResult> {
   if (!DEEPSEEK_API_KEY) {
     throw new Error('DeepSeek API key is not configured');
   }

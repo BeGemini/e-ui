@@ -48,7 +48,7 @@ function practiceData(currentSentenceIndex: number, withSecondAttempt = true): {
       durationSeconds: 4,
       subtitles,
       userProgress: { currentSentenceIndex, isCompleted: false },
-      knowledgePoints: [],
+      notes: [],
       attempts: [
         { sentenceIndex: 0, userInput: 'first answer', accuracy: 80, wordFeedback: feedback('first') },
         ...(withSecondAttempt ? [

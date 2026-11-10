@@ -46,7 +46,7 @@ test.describe('Dictation Practice Flow', () => {
     // Verify practice page is displayed with video player
     await expect(page.locator('video')).toBeVisible({ timeout: 3000 });
 
-    for (const name of ['Back to dashboard', 'Customize Subtitles', 'Knowledge Points', 'My Sentences', 'Back']) {
+    for (const name of ['Back to dashboard', 'Customize Subtitles', 'Notes', 'My Sentences', 'Back']) {
       const button = page.getByRole('button', { name, exact: true });
       await expect(button).toBeVisible();
       await expect(button).toHaveText('');

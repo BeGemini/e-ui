@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import type { KnowledgePointCategory } from './types';
+import type { NoteCategory } from './types';
 
 /**
  * Auth Schemas
@@ -60,31 +60,31 @@ export const SubtitleConfigSchema = z.object({
 });
 
 /**
- * Knowledge Point Schemas
+ * Note Schemas
  */
-export const KnowledgePointCategorySchema: z.ZodType<KnowledgePointCategory> = z.enum([
+export const NoteCategorySchema: z.ZodType<NoteCategory> = z.enum([
   'word',
   'phrase',
   'sentence',
 ]);
 
-export const KnowledgePointCreateSchema = z.object({
+export const NoteCreateSchema = z.object({
   sourceSentenceIndex: z.number().int().min(0, 'Invalid sentence index'),
   capturedText: z.string().min(1, 'Captured text is required').max(500, 'Captured text too long'),
-  category: KnowledgePointCategorySchema,
+  category: NoteCategorySchema,
   description: z.string().min(1, 'Description is required').max(2000, 'Description too long'),
 });
 
-export const KnowledgePointUpdateSchema = z.object({
-  category: KnowledgePointCategorySchema.optional(),
+export const NoteUpdateSchema = z.object({
+  category: NoteCategorySchema.optional(),
   description: z.string().min(1, 'Description is required').max(2000, 'Description too long').optional(),
 }).refine((data) => data.category !== undefined || data.description !== undefined, {
   message: 'At least one field (category or description) must be provided',
 });
 
-export const AiKnowledgePointTeachSchema = z.object({
+export const AiNoteTeachSchema = z.object({
   capturedText: z.string().min(1, 'Captured text is required').max(500, 'Captured text too long'),
-  category: KnowledgePointCategorySchema,
+  category: NoteCategorySchema,
   sourceSentence: z.string().max(2000, 'Source sentence too long'),
 });
 

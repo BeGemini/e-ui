@@ -1,10 +1,10 @@
 /**
- * Knowledge point utility functions
+ * Note utility functions
  * - Text selection normalization to whole word boundaries
- * - Highlight segmentation for overlapping knowledge points
+ * - Highlight segmentation for overlapping notes
  */
 
-import type { KnowledgePoint, KnowledgePointCategory } from './types';
+import type { Note, NoteCategory } from './types';
 
 /**
  * Normalize a text selection to whole word boundaries within a sentence.
@@ -43,33 +43,33 @@ export function isValidCapturedText(sentenceText: string, capturedText: string):
 }
 
 /**
- * A segment of text with associated knowledge point categories.
+ * A segment of text with associated note categories.
  */
 export interface HighlightSegment {
   text: string;
   start: number;
   end: number;
-  categories: KnowledgePointCategory[];
+  categories: NoteCategory[];
 }
 
 /**
- * Split a sentence into segments based on knowledge point boundaries.
- * Each segment contains the categories of all knowledge points that cover it.
- * Overlapping knowledge points produce segments that combine all applicable categories.
+ * Split a sentence into segments based on note boundaries.
+ * Each segment contains the categories of all notes that cover it.
+ * Overlapping notes produce segments that combine all applicable categories.
  */
 export function buildHighlightSegments(
   sentenceText: string,
-  knowledgePoints: KnowledgePoint[]
+  notes: Note[]
 ): HighlightSegment[] {
-  if (!sentenceText || knowledgePoints.length === 0) {
+  if (!sentenceText || notes.length === 0) {
     return [{ text: sentenceText, start: 0, end: sentenceText.length, categories: [] }];
   }
 
   // Find all boundary positions and category coverage
   const boundaries = new Set<number>([0, sentenceText.length]);
-  const coverage: { start: number; end: number; category: KnowledgePointCategory }[] = [];
+  const coverage: { start: number; end: number; category: NoteCategory }[] = [];
 
-  for (const kp of knowledgePoints) {
+  for (const kp of notes) {
     const index = sentenceText.indexOf(kp.capturedText);
     if (index === -1) continue;
 
@@ -107,11 +107,11 @@ export function buildHighlightSegments(
 }
 
 /**
- * Filter knowledge points to those that match the given sentence text.
+ * Filter notes to those that match the given sentence text.
  */
-export function getMatchingKnowledgePoints(
+export function getMatchingNotes(
   sentenceText: string,
-  knowledgePoints: KnowledgePoint[]
-): KnowledgePoint[] {
-  return knowledgePoints.filter((kp) => sentenceText.includes(kp.capturedText));
+  notes: Note[]
+): Note[] {
+  return notes.filter((kp) => sentenceText.includes(kp.capturedText));
 }

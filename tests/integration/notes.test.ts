@@ -5,21 +5,21 @@
 import { describe, it, expect, beforeAll } from '@jest/globals';
 
 /**
- * Integration Tests: Exercise Knowledge Points API
+ * Integration Tests: Exercise Notes API
  *
- * Tests the knowledge point lifecycle:
- * 1. Create a knowledge point from feedback text
- * 2. List knowledge points for an exercise
- * 3. Update a knowledge point
- * 4. Delete a knowledge point
+ * Tests the note lifecycle:
+ * 1. Create a note from feedback text
+ * 2. List notes for an exercise
+ * 3. Update a note
+ * 4. Delete a note
  * 5. Ignore duplicate creates for the same captured text
  */
 
-describe('Knowledge Points API Integration Tests', () => {
+describe('Notes API Integration Tests', () => {
   const testBaseUrl = process.env.TEST_BASE_URL || 'http://localhost:3000';
   let authToken: string;
   let exerciseId: string;
-  let knowledgePointId: string;
+  let noteId: string;
 
   beforeAll(async () => {
     const loginRes = await fetch(`${testBaseUrl}/api/auth/login`, {
@@ -51,9 +51,9 @@ describe('Knowledge Points API Integration Tests', () => {
     exerciseId = firstExercise.exerciseId;
   });
 
-  describe('Create Knowledge Point', () => {
-    it('should create a new knowledge point', async () => {
-      const response = await fetch(`${testBaseUrl}/api/knowledge-points/${exerciseId}`, {
+  describe('Create Note', () => {
+    it('should create a new note', async () => {
+      const response = await fetch(`${testBaseUrl}/api/notes/${exerciseId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -72,11 +72,11 @@ describe('Knowledge Points API Integration Tests', () => {
       expect(data.success).toBe(true);
       expect(data.data.capturedText).toBe('hello');
       expect(data.data.category).toBe('word');
-      knowledgePointId = data.data.knowledgePointId;
+      noteId = data.data.noteId;
     });
 
-    it('should ignore duplicate knowledge points and return the existing one', async () => {
-      const response = await fetch(`${testBaseUrl}/api/knowledge-points/${exerciseId}`, {
+    it('should ignore duplicate notes and return the existing one', async () => {
+      const response = await fetch(`${testBaseUrl}/api/notes/${exerciseId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,11 +93,11 @@ describe('Knowledge Points API Integration Tests', () => {
       expect(response.status).toBe(200);
       const data = await response.json();
       expect(data.success).toBe(true);
-      expect(data.data.knowledgePointId).toBe(knowledgePointId);
+      expect(data.data.noteId).toBe(noteId);
     });
 
     it('should reject invalid category', async () => {
-      const response = await fetch(`${testBaseUrl}/api/knowledge-points/${exerciseId}`, {
+      const response = await fetch(`${testBaseUrl}/api/notes/${exerciseId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,9 +115,9 @@ describe('Knowledge Points API Integration Tests', () => {
     });
   });
 
-  describe('List Knowledge Points', () => {
-    it('should list knowledge points for the exercise', async () => {
-      const response = await fetch(`${testBaseUrl}/api/knowledge-points/${exerciseId}`, {
+  describe('List Notes', () => {
+    it('should list notes for the exercise', async () => {
+      const response = await fetch(`${testBaseUrl}/api/notes/${exerciseId}`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
 
@@ -129,15 +129,15 @@ describe('Knowledge Points API Integration Tests', () => {
     });
 
     it('should reject unauthenticated requests', async () => {
-      const response = await fetch(`${testBaseUrl}/api/knowledge-points/${exerciseId}`);
+      const response = await fetch(`${testBaseUrl}/api/notes/${exerciseId}`);
       expect(response.status).toBe(401);
     });
   });
 
-  describe('Update Knowledge Point', () => {
+  describe('Update Note', () => {
     it('should update category and description', async () => {
       const response = await fetch(
-        `${testBaseUrl}/api/knowledge-points/${exerciseId}/${knowledgePointId}`,
+        `${testBaseUrl}/api/notes/${exerciseId}/${noteId}`,
         {
           method: 'PATCH',
           headers: {
@@ -160,7 +160,7 @@ describe('Knowledge Points API Integration Tests', () => {
 
     it('should reject empty update body', async () => {
       const response = await fetch(
-        `${testBaseUrl}/api/knowledge-points/${exerciseId}/${knowledgePointId}`,
+        `${testBaseUrl}/api/notes/${exerciseId}/${noteId}`,
         {
           method: 'PATCH',
           headers: {
@@ -175,10 +175,10 @@ describe('Knowledge Points API Integration Tests', () => {
     });
   });
 
-  describe('Delete Knowledge Point', () => {
-    it('should delete the knowledge point', async () => {
+  describe('Delete Note', () => {
+    it('should delete the note', async () => {
       const response = await fetch(
-        `${testBaseUrl}/api/knowledge-points/${exerciseId}/${knowledgePointId}`,
+        `${testBaseUrl}/api/notes/${exerciseId}/${noteId}`,
         {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${authToken}` },
@@ -190,9 +190,9 @@ describe('Knowledge Points API Integration Tests', () => {
       expect(data.success).toBe(true);
     });
 
-    it('should return 404 for already deleted knowledge point', async () => {
+    it('should return 404 for already deleted note', async () => {
       const response = await fetch(
-        `${testBaseUrl}/api/knowledge-points/${exerciseId}/${knowledgePointId}`,
+        `${testBaseUrl}/api/notes/${exerciseId}/${noteId}`,
         {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${authToken}` },
