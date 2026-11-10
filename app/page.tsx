@@ -4,6 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from '@/components/ui/input-otp';
+import { REGEXP_ONLY_DIGITS_AND_CHARS } from 'input-otp';
 
 export default function Home() {
   const router = useRouter();
@@ -49,6 +55,12 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!isLogin && invitationCode.length !== 6) {
+      setError('Please enter the 6-character invitation code');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -71,8 +83,8 @@ export default function Home() {
       const data = await res.json();
       localStorage.setItem('token', data.token);
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -167,15 +179,24 @@ export default function Home() {
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Invitation Code
                 </label>
-                <Input
-                  type="text"
+                <InputOTP
+                  maxLength={6}
+                  pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
                   value={invitationCode}
-                  onChange={(e) => setInvitationCode(e.target.value)}
-                  placeholder="Enter invitation code"
-                  required
+                  onChange={(value) => setInvitationCode(value.toUpperCase())}
                   disabled={isLoading}
-                  size="lg"
-                />
+                  containerClassName="w-full"
+                >
+                  <InputOTPGroup className="w-full">
+                    {[0, 1, 2, 3, 4, 5].map((index) => (
+                      <InputOTPSlot
+                        key={index}
+                        index={index}
+                        className="h-12 flex-1 border-gray-200 bg-white text-base font-medium first:rounded-l-xl last:rounded-r-xl data-[active=true]:border-blue-600 data-[active=true]:ring-blue-600/20"
+                      />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
               </div>
             </>
           )}
