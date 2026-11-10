@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import ExerciseDetailPage from '@/app/dashboard/[exerciseId]/page';
+import ExerciseDetailPage from '@/app/(site)/dashboard/[exerciseId]/page';
 
 const mockPush = jest.fn();
 const mockRouter = { push: mockPush, back: jest.fn() };

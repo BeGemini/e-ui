@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 
 export default function Home() {
   const router = useRouter();
@@ -70,8 +69,6 @@ export default function Home() {
       }
 
       const data = await res.json();
-      console.log('✅ Auth response:', data);
-      console.log('✅ Token:', data.token);
       localStorage.setItem('token', data.token);
       router.push('/dashboard');
     } catch (err: any) {
@@ -83,46 +80,59 @@ export default function Home() {
 
   if (isCheckingAuth) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-1 items-center justify-center bg-[#f7f8f8]">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <div className="inline-block h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-500"></div>
+          <p className="mt-4 text-gray-500">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <Card className="w-full max-w-md p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            {isLogin ? 'Login' : 'Sign Up'}
-          </h1>
-          <p className="mt-2 text-gray-600">
-            {isLogin
-              ? 'Welcome back to English Listening Dictation'
-              : 'Start your English learning journey'}
-          </p>
+    <div className="flex flex-1 items-center justify-center bg-[#f7f8f8] px-4 py-10">
+      <div className="w-full max-w-md">
+        <div className="mb-12 flex items-center gap-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Dictare" className="h-9 w-9 rounded-lg" />
+          <span className="text-xl font-semibold text-gray-900">Dictare</span>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <h1 className="text-3xl font-bold text-gray-900">
+          {isLogin ? 'Welcome back' : 'Create your account'}
+        </h1>
+        <p className="mt-3 text-sm text-gray-500">
+          {isLogin ? "Don't have an account?" : 'Already have an account?'}
+          <button
+            type="button"
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError('');
+            }}
+            className="ml-1 font-medium text-emerald-600 hover:text-emerald-700"
+          >
+            {isLogin ? 'Sign up free' : 'Log in'}
+          </button>
+        </p>
+
+        <form onSubmit={handleSubmit} className="mt-10 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-gray-700">
               Email
             </label>
             <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
+              placeholder="you@example.com"
               required
               disabled={isLoading}
+              size="lg"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-gray-700">
               Password
             </label>
             <Input
@@ -132,13 +142,14 @@ export default function Home() {
               placeholder="Enter your password"
               required
               disabled={isLoading}
+              size="lg"
             />
           </div>
 
           {!isLogin && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   Confirm Password
                 </label>
                 <Input
@@ -148,11 +159,12 @@ export default function Home() {
                   placeholder="Confirm your password"
                   required
                   disabled={isLoading}
+                  size="lg"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   Invitation Code
                 </label>
                 <Input
@@ -162,48 +174,33 @@ export default function Home() {
                   placeholder="Enter invitation code"
                   required
                   disabled={isLoading}
+                  size="lg"
                 />
               </div>
             </>
           )}
 
           {error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+            <div className="rounded-xl bg-red-50 p-3 text-sm text-red-600">
               {error}
             </div>
           )}
 
           <Button
             type="submit"
+            variant="brand"
+            size="xl"
             disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700"
+            className="w-full"
           >
-            {isLoading ? 'Loading...' : isLogin ? 'Login' : 'Sign Up'}
+            {isLoading ? 'Please wait...' : isLogin ? 'Log In' : 'Sign Up'}
           </Button>
         </form>
 
-        <div className="mt-6">
-          <button
-            type="button"
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError('');
-            }}
-            className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
-          >
-            {isLogin
-              ? "Don't have an account? Sign up"
-              : 'Already have an account? Login'}
-          </button>
-        </div>
-
-        {!isLogin && (
-          <div className="mt-4 rounded-md bg-blue-50 p-3 text-sm text-blue-700">
-            <p className="font-medium">Test Invitation Code:</p>
-            <p className="text-xs mt-1">Use any valid code from your admin</p>
-          </div>
-        )}
-      </Card>
+        <p className="mt-16 text-center text-xs text-gray-400">
+          © 2026 Dictare
+        </p>
+      </div>
     </div>
   );
 }

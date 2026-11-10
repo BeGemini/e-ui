@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import PracticePage from '@/app/dashboard/[exerciseId]/practice/page';
+import PracticePage from '@/app/(site)/dashboard/[exerciseId]/practice/page';
 import type { WordFeedback } from '@/lib/types';
 
 const mockPush = jest.fn();
