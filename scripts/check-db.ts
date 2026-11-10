@@ -58,7 +58,8 @@ async function checkDatabaseConnection() {
     });
 
     console.log('✅ Successfully connected to MySQL!');
-    console.log(`   Version: ${connection.connection.config.version}`);
+    const [versionRows] = await connection.query('SELECT VERSION() AS version');
+    console.log(`   Version: ${(versionRows as Array<{ version: string }>)[0]?.version}`);
 
     await connection.end();
 

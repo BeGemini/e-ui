@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { levenshteinDistance, checkAccuracy } from '@/lib/accuracy';
+import { levenshteinDistance, checkAccuracy, tokenizeText } from '@/lib/accuracy';
 
 describe('Levenshtein Distance Algorithm', () => {
   it('should return 0 for identical strings', () => {
@@ -153,5 +153,42 @@ describe('Accuracy Checker', () => {
       userWord: 'world',
       status: 'correct',
     });
+  });
+});
+
+describe('tokenizeText', () => {
+  it('should tokenize a simple sentence', () => {
+    expect(tokenizeText('hello world')).toEqual(['hello', 'world']);
+  });
+
+  it('should handle punctuation', () => {
+    const tokens = tokenizeText('Hello, world!');
+    expect(tokens).toEqual(['hello', 'world']);
+  });
+
+  it('should handle multiple spaces', () => {
+    expect(tokenizeText('hello    world')).toHaveLength(2);
+  });
+
+  it('should handle empty and whitespace-only strings', () => {
+    expect(tokenizeText('')).toEqual([]);
+    expect(tokenizeText('   ')).toEqual([]);
+  });
+
+  it('should be case-insensitive', () => {
+    expect(tokenizeText('Hello World')).toEqual(['hello', 'world']);
+  });
+
+  it('should keep contractions intact', () => {
+    expect(tokenizeText("don't you")).toEqual(["don't", 'you']);
+  });
+
+  it('should normalize curly apostrophes', () => {
+    expect(tokenizeText('it’s')).toEqual(["it's"]);
+  });
+
+  it('should handle very long strings', () => {
+    const tokens = tokenizeText('word '.repeat(1000));
+    expect(tokens).toHaveLength(1000);
   });
 });
