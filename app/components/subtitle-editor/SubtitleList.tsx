@@ -34,6 +34,11 @@ export function SubtitleList({
   const [editingText, setEditingText] = useState('');
 
   const editableSubtitles = subtitles.filter((s) => !s.isLocked);
+  // Match practice: a row is excluded only when all of its original indices are skipped
+  const skippedSet = new Set(skippedSentences);
+  const activeSentenceCount = subtitles.filter(
+    (s) => !s.originalIndices.every((i) => skippedSet.has(i))
+  ).length;
   const allEditableSelected =
     editableSubtitles.length > 0 &&
     editableSubtitles.every((s) => selectedForMerge.includes(s.index));
@@ -67,7 +72,7 @@ export function SubtitleList({
       <div className="flex items-center justify-between border-b border-gray-200 pb-3">
         <h3 className="font-semibold text-gray-900">Subtitle Management</h3>
         <div className="text-sm text-gray-500">
-          {currentProgress}/{subtitles.length} completed
+          {currentProgress}/{activeSentenceCount} completed
         </div>
       </div>
 

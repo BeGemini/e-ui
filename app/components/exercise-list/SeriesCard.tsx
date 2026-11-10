@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useId, useState } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -10,6 +10,7 @@ import SeasonExpander from './SeasonExpander';
 interface Season {
   seasonId: string;
   seasonNumber: number;
+  title?: string | null;
   episodes: Episode[];
 }
 
@@ -48,6 +49,7 @@ const difficultyConfig = {
 
 export default function SeriesCard({ series }: SeriesCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const contentId = useId();
   const config = difficultyConfig[series.difficulty];
 
   const totalEpisodes = series.seasons.reduce(
@@ -64,32 +66,39 @@ export default function SeriesCard({ series }: SeriesCardProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <CardTitle className="text-lg">{series.title}</CardTitle>
+        <Button
+          variant="ghost"
+          onClick={() => setIsExpanded((expanded) => !expanded)}
+          aria-label={series.title}
+          aria-expanded={isExpanded}
+          aria-controls={contentId}
+          className="h-auto w-full cursor-pointer items-start justify-between gap-4 p-0 text-left font-normal whitespace-normal aria-expanded:bg-transparent"
+        >
+          <span className="flex-1">
+            <span data-slot="card-title" className="block font-heading text-lg leading-snug font-medium">
+              {series.title}
+            </span>
             {series.description && (
-              <p className="mt-1 text-sm text-muted-foreground">{series.description}</p>
+              <span className="mt-1 block text-sm text-muted-foreground">{series.description}</span>
             )}
-            <div className="mt-2 flex items-center gap-2">
+            <span className="mt-2 flex items-center gap-2">
               <Badge className={config.className}>{config.label}</Badge>
               <span className="text-xs text-muted-foreground">
                 {totalEpisodes} episodes • {totalExercises} exercises
               </span>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="mt-2"
+            </span>
+          </span>
+          <span
+            aria-hidden="true"
+            className="mt-2 inline-flex h-7 shrink-0 items-center justify-center px-2.5"
           >
             {isExpanded ? <ChevronUp /> : <ChevronDown />}
-          </Button>
-        </div>
+          </span>
+        </Button>
       </CardHeader>
 
       {isExpanded && (
-        <CardContent className="space-y-3">
+        <CardContent id={contentId} className="space-y-3">
           {series.seasons.map((season) => (
             <SeasonExpander key={season.seasonId} season={season} />
           ))}

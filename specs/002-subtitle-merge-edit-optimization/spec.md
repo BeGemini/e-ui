@@ -141,5 +141,5 @@ After merging subtitles, the user must be able to edit the text of the merged se
 - Changes to merged subtitle text are considered part of the user's personal configuration and do not affect other users or admin defaults
 - Cleaning `\N` markers means replacing each `\N` with a single space and trimming leading/trailing whitespace
 - Subtitle numbering is a presentation-layer concern and does not require changing stored subtitle identifiers
-- Mobile and desktop users will have equivalent access to merge, unmerge, and edit actions
+- Users access merge, unmerge, and edit actions from desktop browsers (mobile is out of scope)
 - Existing practice history is not retroactively changed when a user edits a merged subtitle; only future attempts use the new text

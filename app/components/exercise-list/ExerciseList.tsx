@@ -16,6 +16,7 @@ interface Series {
 interface Season {
   seasonId: string;
   seasonNumber: number;
+  title?: string | null;
   episodes: Episode[];
 }
 

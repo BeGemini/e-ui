@@ -141,3 +141,22 @@ export async function requireAuth(request: NextRequest): Promise<{
 export function isAdmin(session: { role: string } | null): boolean {
   return session?.role === 'admin';
 }
+
+/**
+ * Require an authenticated admin session.
+ * Returns 401 if unauthenticated, 403 if authenticated but not admin.
+ */
+export async function requireAdmin(request: NextRequest): Promise<{
+  userId: string;
+  email: string;
+  role: string;
+} | NextResponse> {
+  const session = await requireAuth(request);
+  if (session instanceof NextResponse) {
+    return session;
+  }
+  if (!isAdmin(session)) {
+    return NextResponse.json({ error: 'Forbidden: admin only' }, { status: 403 });
+  }
+  return session;
+}

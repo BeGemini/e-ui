@@ -27,7 +27,7 @@ export function DictationInput({
   // Auto-focus on component mount
   useEffect(() => {
     if (textareaRef.current && !isDisabled) {
-      textareaRef.current.focus();
+      textareaRef.current.focus({ preventScroll: true });
     }
   }, [isDisabled]);
 
@@ -74,7 +74,7 @@ export function DictationInput({
             size="sm"
             onClick={onSubmit}
             disabled={isDisabled || isLoading || value.length === 0}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-blue-600 hover:bg-blue-700"
           >
             {isLoading ? 'Checking...' : 'Check'}
           </Button>

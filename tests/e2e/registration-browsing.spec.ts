@@ -77,7 +77,7 @@ test.describe('Registration → Browsing Flow', () => {
     await page.waitForURL('/dashboard');
 
     // Logout
-    await page.click('button:has-text("Logout")');
+    await page.getByRole('button', { name: 'Logout', exact: true }).click();
     await page.waitForURL('/');
 
     // Login again with same credentials

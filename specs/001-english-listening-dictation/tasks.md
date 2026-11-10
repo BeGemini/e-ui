@@ -269,7 +269,7 @@
   - File: `app/components/video-player/SubtitleDisplay.tsx`
   - Shows: Current subtitle text
   - Large, readable font (18-24px), centered
-  - Responsive: Works on mobile (320px+)
+  - Layout: Works on desktop browsers
 
 - [x] T039 [US3] [P] Create PlaybackControls component
   - File: `app/components/video-player/PlaybackControls.tsx`
@@ -284,7 +284,7 @@
   - TextArea: Capture user's typed input
   - Button: "Check" to submit for verification
   - Clear: Input after moving to next sentence
-  - Responsive: Mobile-friendly input
+  - Layout: Desktop-friendly input
 
 - [x] T041 [US3] [P] Create WordFeedbackDisplay component
   - File: `app/components/dictation/WordFeedbackDisplay.tsx`

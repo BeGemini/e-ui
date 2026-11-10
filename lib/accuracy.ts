@@ -54,6 +54,7 @@ export function levenshteinDistance(str1: string, str2: string): number {
 export function tokenizeText(text: string): string[] {
   return text
     .toLowerCase()
+    .replace(/[‘’]/g, "'") // Normalize curly apostrophes to straight ones
     .replace(/[^\w\s'-]/g, ' ') // Replace punctuation with spaces
     .split(/\s+/)
     .filter((word) => word.length > 0);
@@ -88,12 +89,53 @@ export function checkWordAccuracy(
   return 'wrong';
 }
 
-/**
- * Calculate accuracy for a sentence dictation
- * @param userInput - User's typed dictation
- * @param correctText - Correct subtitle text
- * @returns Object with accuracy percentage and word-by-word feedback
- */
+/** Align words using the minimum number of insertions, deletions, and substitutions. */
+function alignTokens(userTokens: string[], correctTokens: string[]) {
+  const distances: number[][] = Array(correctTokens.length + 1)
+    .fill(null)
+    .map(() => Array(userTokens.length + 1).fill(0));
+
+  for (let i = 0; i <= correctTokens.length; i++) {
+    distances[i][0] = i;
+  }
+  for (let j = 0; j <= userTokens.length; j++) {
+    distances[0][j] = j;
+  }
+
+  for (let i = 1; i <= correctTokens.length; i++) {
+    for (let j = 1; j <= userTokens.length; j++) {
+      const substitutionCost = correctTokens[i - 1] === userTokens[j - 1] ? 0 : 1;
+      distances[i][j] = Math.min(
+        distances[i - 1][j - 1] + substitutionCost,
+        distances[i - 1][j] + 1,
+        distances[i][j - 1] + 1
+      );
+    }
+  }
+
+  const aligned: Array<{ word: string; userWord: string }> = [];
+  let i = correctTokens.length;
+  let j = userTokens.length;
+
+  while (i > 0 || j > 0) {
+    const substitutionCost = i > 0 && j > 0 && correctTokens[i - 1] !== userTokens[j - 1] ? 1 : 0;
+
+    if (i > 0 && j > 0 && distances[i][j] === distances[i - 1][j - 1] + substitutionCost) {
+      aligned.push({ word: correctTokens[i - 1], userWord: userTokens[j - 1] });
+      i--;
+      j--;
+    } else if (i > 0 && distances[i][j] === distances[i - 1][j] + 1) {
+      aligned.push({ word: correctTokens[i - 1], userWord: '' });
+      i--;
+    } else {
+      aligned.push({ word: '', userWord: userTokens[j - 1] });
+      j--;
+    }
+  }
+
+  return aligned.reverse();
+}
+
 export function checkAccuracy(userInput: string, correctText: string): {
   accuracy: number;
   wordFeedback: WordFeedback[];
@@ -101,52 +143,28 @@ export function checkAccuracy(userInput: string, correctText: string): {
 } {
   const userTokens = tokenizeText(userInput);
   const correctTokens = tokenizeText(correctText);
+  const alignedTokens = alignTokens(userTokens, correctTokens);
 
   const wordFeedback: WordFeedback[] = [];
   let correctCount = 0;
   let typoCount = 0;
   let wrongCount = 0;
 
-  // Compare each correct word with user's input
-  for (let i = 0; i < correctTokens.length; i++) {
-    const word = correctTokens[i];
-    const userWord = userTokens[i];
+  for (const { word, userWord } of alignedTokens) {
+    let status: WordFeedbackStatus = 'wrong';
 
-    if (!userWord) {
-      // User didn't provide this word
-      wordFeedback.push({
-        userWord: '',
-        word,
-        status: 'wrong',
-      });
-      wrongCount++;
-    } else {
+    if (word && userWord) {
       const rawStatus = checkWordAccuracy(userWord, word);
-      const status: WordFeedbackStatus = rawStatus === 'acceptable' ? 'typo' : rawStatus;
-      wordFeedback.push({
-        userWord,
-        word,
-        status,
-      });
-
-      if (status === 'correct') {
-        correctCount++;
-      } else if (status === 'typo') {
-        typoCount++;
-      } else {
-        wrongCount++;
-      }
+      status = rawStatus === 'acceptable' ? 'typo' : rawStatus;
     }
-  }
 
-  // Check for extra words in user input
-  if (userTokens.length > correctTokens.length) {
-    for (let i = correctTokens.length; i < userTokens.length; i++) {
-      wordFeedback.push({
-        userWord: userTokens[i],
-        word: '',
-        status: 'wrong',
-      });
+    wordFeedback.push({ word, userWord, status });
+
+    if (status === 'correct') {
+      correctCount++;
+    } else if (status === 'typo') {
+      typoCount++;
+    } else {
       wrongCount++;
     }
   }

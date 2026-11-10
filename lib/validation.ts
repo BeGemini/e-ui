@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import type { KnowledgePointCategory } from './types';
+import type { NoteCategory } from './types';
 
 /**
  * Auth Schemas
@@ -23,6 +23,10 @@ export const RegisterSchema = z.object({
 export const LoginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password required'),
+});
+
+export const UpdateProfileSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(100, 'Name too long'),
 });
 
 /**
@@ -56,31 +60,31 @@ export const SubtitleConfigSchema = z.object({
 });
 
 /**
- * Knowledge Point Schemas
+ * Note Schemas
  */
-export const KnowledgePointCategorySchema: z.ZodType<KnowledgePointCategory> = z.enum([
+export const NoteCategorySchema: z.ZodType<NoteCategory> = z.enum([
   'word',
   'phrase',
   'sentence',
 ]);
 
-export const KnowledgePointCreateSchema = z.object({
+export const NoteCreateSchema = z.object({
   sourceSentenceIndex: z.number().int().min(0, 'Invalid sentence index'),
   capturedText: z.string().min(1, 'Captured text is required').max(500, 'Captured text too long'),
-  category: KnowledgePointCategorySchema,
+  category: NoteCategorySchema,
   description: z.string().min(1, 'Description is required').max(2000, 'Description too long'),
 });
 
-export const KnowledgePointUpdateSchema = z.object({
-  category: KnowledgePointCategorySchema.optional(),
+export const NoteUpdateSchema = z.object({
+  category: NoteCategorySchema.optional(),
   description: z.string().min(1, 'Description is required').max(2000, 'Description too long').optional(),
 }).refine((data) => data.category !== undefined || data.description !== undefined, {
   message: 'At least one field (category or description) must be provided',
 });
 
-export const AiKnowledgePointTeachSchema = z.object({
+export const AiNoteTeachSchema = z.object({
   capturedText: z.string().min(1, 'Captured text is required').max(500, 'Captured text too long'),
-  category: KnowledgePointCategorySchema,
+  category: NoteCategorySchema,
   sourceSentence: z.string().max(2000, 'Source sentence too long'),
 });
 
@@ -95,3 +99,88 @@ export async function validate<T>(schema: z.ZodSchema, data: unknown): Promise<T
   }
   return result.data as T;
 }
+
+/**
+ * Admin Content Management Schemas
+ */
+const DifficultySchema = z.enum(['beginner', 'intermediate', 'advanced'], { message: 'Select a difficulty' });
+
+const optionalText = (max: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, `${label} must be at most ${max} characters`)
+    .optional()
+    .transform((v) => (v ? v : undefined));
+
+const positiveInt = (label: string) =>
+  z.coerce
+    .number({ message: `${label} must be a number` })
+    .int(`${label} must be a positive integer`)
+    .positive(`${label} must be a positive integer`);
+
+const requiredText = (max: number, label: string) =>
+  z
+    .string({ message: `${label} is required` })
+    .trim()
+    .min(1, `${label} is required`)
+    .max(max, `${label} must be at most ${max} characters`);
+
+const parentId = (label: string) => z.string({ message: `Select a ${label}` }).uuid(`Select a ${label}`);
+
+export const AdminSeriesCreateSchema = z.object({
+  title: requiredText(255, 'Title'),
+  difficulty: DifficultySchema,
+  description: optionalText(5000, 'Description'),
+  genre: optionalText(100, 'Genre'),
+  coverImageUrl: z
+    .string()
+    .trim()
+    .max(500, 'Cover image URL must be at most 500 characters')
+    .optional()
+    .transform((v) => (v ? v : undefined))
+    .refine((v) => v === undefined || /^https?:\/\/\S+$/i.test(v), 'Cover image URL must be an http(s) link'),
+});
+
+export const AdminSeasonCreateSchema = z.object({
+  seriesId: parentId('series'),
+  seasonNumber: positiveInt('Season number'),
+  title: optionalText(255, 'Title'),
+  description: optionalText(5000, 'Description'),
+});
+
+export const AdminEpisodeCreateSchema = z.object({
+  seasonId: parentId('season'),
+  episodeNumber: positiveInt('Episode number'),
+  title: requiredText(255, 'Title'),
+  description: optionalText(5000, 'Description'),
+});
+
+export const AdminExerciseProbeSchema = z.object({
+  videoUrl: requiredText(500, 'Video'),
+  subtitleUrl: requiredText(500, 'Subtitle'),
+});
+
+export const AdminExerciseCreateSchema = AdminExerciseProbeSchema.extend({
+  episodeId: parentId('episode'),
+  title: requiredText(255, 'Title'),
+  difficulty: DifficultySchema.nullish(),
+});
+
+export const AdminExerciseFetchTedSchema = z.object({
+  url: requiredText(2000, 'TED Talk URL').refine((value) => {
+    try {
+      const url = new URL(value);
+      return (
+        url.protocol === 'https:' &&
+        url.hostname === 'www.ted.com' &&
+        url.username === '' &&
+        url.password === '' &&
+        /^\/talks\/[^/]+\/?$/.test(url.pathname)
+      );
+    } catch {
+      return false;
+    }
+  }, 'Enter a valid TED Talk URL'),
+  uploadToCos: z.boolean().optional().default(true),
+});

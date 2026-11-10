@@ -339,13 +339,14 @@ export async function DELETE(
 
 /**
  * Compute the number of effective sentences after applying merge/skip config.
- * Falls back to the raw subtitle count if the subtitle file cannot be fetched.
+ * Returns null when the subtitle file cannot be fetched/parsed, so readers
+ * recompute it instead of trusting a wrong persisted value.
  */
 async function computeEffectiveSentenceCount(
   exerciseId: string,
   mergedGroups: unknown[],
   skippedSentences: unknown[]
-): Promise<number> {
+): Promise<number | null> {
   try {
     const exercise = await queryOne<Exercise>(
       'SELECT * FROM Exercise WHERE exerciseId = ?',
@@ -353,14 +354,14 @@ async function computeEffectiveSentenceCount(
     );
 
     if (!exercise) {
-      return 0;
+      return null;
     }
 
     const subtitleContent = await downloadFile(exercise.subtitleUrl);
     const format = detectSubtitleFormat(exercise.subtitleUrl);
 
     if (!format || !subtitleContent) {
-      return exercise.totalSentences;
+      return null;
     }
 
     const contentStr = typeof subtitleContent === 'string'
@@ -368,6 +369,9 @@ async function computeEffectiveSentenceCount(
       : subtitleContent.toString('utf-8');
 
     const rawSubtitles = parseSubtitles(contentStr, format);
+    if (rawSubtitles.length === 0) {
+      return null;
+    }
 
     const configInput: SubtitleConfigInput = {
       mergedGroups: mergedGroups as SubtitleConfigInput['mergedGroups'],
@@ -378,6 +382,6 @@ async function computeEffectiveSentenceCount(
     return effectiveSubtitles.length;
   } catch (error) {
     console.error('Error computing effective sentence count:', error);
-    return 0;
+    return null;
   }
 }

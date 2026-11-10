@@ -42,6 +42,32 @@ export function MergeGroupEditor({
         </p>
       )}
 
+      {/* Quick Create from Selected */}
+      {selectedForMerge.length >= 2 && (
+        <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-blue-900">
+              Create group from {selectedForMerge.length} selected sentences?
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Group label (optional)"
+                value={labelForSelected}
+                onChange={(e) => setLabelForSelected(e.target.value)}
+                className="text-sm"
+              />
+              <Button
+                size="sm"
+                onClick={handleCreateFromSelected}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Create Group
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Existing groups */}
       {mergeGroups.length > 0 && (
         <div className="space-y-2">
@@ -76,31 +102,6 @@ export function MergeGroupEditor({
         </div>
       )}
 
-      {/* Quick Create from Selected */}
-      {selectedForMerge.length >= 2 && (
-        <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-blue-900">
-              Create group from {selectedForMerge.length} selected sentences?
-            </p>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Group label (optional)"
-                value={labelForSelected}
-                onChange={(e) => setLabelForSelected(e.target.value)}
-                className="text-sm"
-              />
-              <Button
-                size="sm"
-                onClick={handleCreateFromSelected}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                Create Group
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

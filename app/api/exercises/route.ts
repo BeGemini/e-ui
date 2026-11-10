@@ -7,7 +7,7 @@ import { Series, Season, Episode, Exercise, UserExerciseProgress } from '@/lib/t
 interface ExerciseInHierarchy extends Exercise {
   completed?: boolean;
   currentProgress?: number;
-  knowledgePointCount?: number;
+  noteCount?: number;
 }
 
 interface EpisodeInHierarchy extends Episode {
@@ -95,18 +95,27 @@ export async function GET(request: NextRequest) {
               [session.userId, exercise.exerciseId]
             );
 
-            // Get user's knowledge point count for this exercise
-            const knowledgePointCountResult = await queryOne<{ count: number }>(
-              `SELECT COUNT(*) as count FROM KnowledgePoint
+            // Get user's note count for this exercise
+            const noteCountResult = await queryOne<{ count: number }>(
+              `SELECT COUNT(*) as count FROM Note
                WHERE userId = ? AND exerciseId = ?`,
+              [session.userId, exercise.exerciseId]
+            );
+
+            // Reflect the user's merge/skip config in the displayed sentence count
+            const subtitleConfig = await queryOne<{ effectiveSentenceCount: number | null }>(
+              'SELECT effectiveSentenceCount FROM UserSubtitleConfig WHERE userId = ? AND exerciseId = ?',
               [session.userId, exercise.exerciseId]
             );
 
             const exerciseData: ExerciseInHierarchy = {
               ...exercise,
-              completed: progress?.isCompleted ?? false,
+              totalSentences: subtitleConfig?.effectiveSentenceCount ?? exercise.totalSentences,
+              // isCompleted is stored as 0/1 in the DB; coerce to boolean so
+              // `{completed && ...}` never renders a literal "0" on the client
+              completed: Boolean(progress?.isCompleted),
               currentProgress: progress?.currentSentenceIndex ?? 0,
-              knowledgePointCount: knowledgePointCountResult?.count ?? 0,
+              noteCount: noteCountResult?.count ?? 0,
             };
 
             exercisesWithProgress.push(exerciseData);

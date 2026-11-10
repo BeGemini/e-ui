@@ -67,31 +67,32 @@ export function AttemptHistory({ attempts }: AttemptHistoryProps) {
       <div className="space-y-2">
         {sortedAttempts.map((attempt) => (
           <Collapsible key={attempt.attemptId}>
-            <CollapsibleTrigger asChild>
-              <button className={`w-full rounded-lg border border-gray-200 p-4 text-left hover:bg-gray-50 transition-colors ${getAccuracyBg(attempt.accuracy)}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium text-gray-700">
-                        {new Date(attempt.timestamp).toLocaleDateString()}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {new Date(attempt.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span>{attempt.completedSentences}/{attempt.totalSentences} sentences</span>
-                      <span>{Math.round(attempt.duration / 60)}m {attempt.duration % 60}s</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xl font-bold ${getAccuracyColor(attempt.accuracy)}`}>
-                      {attempt.accuracy}%
+            <CollapsibleTrigger
+              type="button"
+              className={`w-full rounded-lg border border-gray-200 p-4 text-left hover:bg-gray-50 transition-colors ${getAccuracyBg(attempt.accuracy)}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      {new Date(attempt.timestamp).toLocaleDateString()}
                     </span>
-                    <span className="text-gray-400">›</span>
+                    <span className="text-xs text-gray-500">
+                      {new Date(attempt.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <span>{attempt.completedSentences}/{attempt.totalSentences} sentences</span>
+                    <span>{Math.round(attempt.duration / 60)}m {attempt.duration % 60}s</span>
                   </div>
                 </div>
-              </button>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xl font-bold ${getAccuracyColor(attempt.accuracy)}`}>
+                    {attempt.accuracy}%
+                  </span>
+                  <span className="text-gray-400">›</span>
+                </div>
+              </div>
             </CollapsibleTrigger>
 
             <CollapsibleContent className="bg-gray-50 border border-t-0 border-gray-200 rounded-b-lg p-4">

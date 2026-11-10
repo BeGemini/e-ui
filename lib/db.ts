@@ -38,6 +38,12 @@ export async function initializeDatabase(): Promise<Pool> {
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
+    // Remote MySQL/NAT silently drops idle sockets; without these, a reused
+    // dead connection hangs until the OS reports `read ETIMEDOUT` (~1 min).
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
+    idleTimeout: 30000,
+    connectTimeout: 10000,
   });
 
   console.log(`✅ Database connection pool initialized for ${database}@${host}`);
@@ -65,16 +71,36 @@ export async function closeDatabase(): Promise<void> {
   }
 }
 
+const TRANSIENT_CONNECTION_ERRORS = new Set([
+  'ETIMEDOUT',
+  'ECONNRESET',
+  'EPIPE',
+  'PROTOCOL_CONNECTION_LOST',
+]);
+
+function isTransientConnectionError(error: unknown): boolean {
+  const code = (error as { code?: string } | null)?.code;
+  return typeof code === 'string' && TRANSIENT_CONNECTION_ERRORS.has(code);
+}
+
 /**
- * Execute a query that returns rows
+ * Execute a query that returns rows.
+ * Retries once on a stale/dropped connection (safe because reads are idempotent).
  */
 export async function query<T = RowDataPacket>(
   sql: string,
   values?: (string | number | boolean | null)[]
 ): Promise<T[]> {
   const pool = getPool();
-  const [rows] = await pool.execute<RowDataPacket[]>(sql, values);
-  return rows as unknown as T[];
+  try {
+    const [rows] = await pool.execute<RowDataPacket[]>(sql, values);
+    return rows as unknown as T[];
+  } catch (error) {
+    if (!isTransientConnectionError(error)) throw error;
+    console.warn('⚠️ Database connection dropped, retrying query once:', (error as Error).message);
+    const [rows] = await pool.execute<RowDataPacket[]>(sql, values);
+    return rows as unknown as T[];
+  }
 }
 
 /**

@@ -72,7 +72,7 @@ These are **clarification-level** issues (not design failures) and should be res
 | **I. shadcn-First UI** | ✅ PASS | Tasks T026-T054 specify shadcn components exclusively (VideoPlayer, Form, Card, Button, Dialog). No custom HTML planned. plan.md affirms compliance. | None |
 | **II. Type Safety** | ✅ PASS | T006 creates lib/types.ts; all API contracts have full TypeScript types (RegisterRequest, CheckAccuracyResponse, etc.). plan.md requires strict mode. | None |
 | **III. Full-Stack Integration** | ✅ PASS | All backend in app/api/* routes. No microservices. T001-T005 setup confirms single Next.js project. plan.md III confirms. | None |
-| **IV. Mobile-First & Accessible** | ✅ PASS | Tailwind CSS mobile-first (320px+) in T002. T068 includes WCAG 2.1 AA audit. Components use ARIA and semantic shadcn structure. | None |
+| **IV. Desktop Web & Accessible** | ✅ PASS | Tailwind CSS desktop layout in T002. T068 includes WCAG 2.1 AA audit. Components use ARIA and semantic shadcn structure. | None |
 | **V. Code Quality** | ✅ PASS | T009 (Jest setup), T010 (CI/CD), T055-T062 (comprehensive tests), T073 (input validation). ESLint enforced in T001. | None |
 
 **Constitutional Gate**: ✅ **APPROVED FOR IMPLEMENTATION**

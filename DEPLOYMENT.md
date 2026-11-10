@@ -10,6 +10,7 @@
 - Node.js 18+ 和 npm
 - MySQL 8.0+
 - Git
+- ffmpeg（TED Talks 采集功能需要）
 - （推荐）PM2 进程管理器
 
 ### 2. 安装基础软件（以 Ubuntu 为例）
@@ -36,6 +37,10 @@ sudo mysql_secure_installation
 
 # 安装 PM2（强烈推荐）
 sudo npm install -g pm2
+
+# 安装并验证 TED Talks 采集所需的 ffmpeg
+sudo apt install -y ffmpeg
+ffmpeg -version
 ```
 
 ### 3. 创建数据库和用户
@@ -111,7 +116,12 @@ cd /opt/e-ui
 
 - `001_initial_schema.sql` — 创建 Series、Season、Episode、Exercise、User 等核心表
 - `002_add_effective_sentence_count.sql` — 添加 effectiveSentenceCount 字段
-- `003_add_knowledge_points.sql` — 添加知识点相关表
+- `003_add_notes.sql` — 添加知识点相关表
+- `005_unique_dictation_attempt.sql` — 每句作答只保留一条：先删除同一句的历史重复作答（只留最新一条），再给 `UserDictationAttempt` 加 `UNIQUE(progressId, sentenceIndex)`
+
+> ⚠️ **部署 005 前先备份**：该迁移会**不可逆地删除**重复的历史作答。执行前先运行
+> `mysqldump <db> UserDictationAttempt > backup-UserDictationAttempt-<date>.sql`。
+> `scripts/deploy.sh` 会先执行 `npm run db:migrate` 再启动新代码。
 
 `npm run db:migrate` 会：
 1. 自动创建数据库（如果不存在）
@@ -171,6 +181,17 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
+    }
+
+    # TED 视频下载、转封装和上传可能持续较长时间。
+    location = /api/admin/exercises/fetch-ted {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
     }
 }
 ```

@@ -23,7 +23,12 @@ export async function GET(
 
     // Fetch exercise
     const exercise = await queryOne<Exercise>(
-      'SELECT * FROM Exercise WHERE exerciseId = ?',
+      `SELECT e.*, COALESCE(e.difficulty, s.difficulty) AS difficulty
+       FROM Exercise e
+       LEFT JOIN Episode ep ON ep.episodeId = e.episodeId
+       LEFT JOIN Season sn ON sn.seasonId = ep.seasonId
+       LEFT JOIN Series s ON s.seriesId = sn.seriesId
+       WHERE e.exerciseId = ?`,
       [exerciseId]
     );
 
@@ -40,10 +45,19 @@ export async function GET(
       [session.userId, exerciseId]
     );
 
+    // Reflect the user's merge/skip config in the sentence count
+    const subtitleConfig = await queryOne<{ effectiveSentenceCount: number | null }>(
+      'SELECT effectiveSentenceCount FROM UserSubtitleConfig WHERE userId = ? AND exerciseId = ?',
+      [session.userId, exerciseId]
+    );
+
     return NextResponse.json(
       {
         success: true,
-        exercise,
+        exercise: {
+          ...exercise,
+          totalSentences: subtitleConfig?.effectiveSentenceCount ?? exercise.totalSentences,
+        },
         progress: progress || null,
       },
       { status: 200 }

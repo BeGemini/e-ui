@@ -6,6 +6,15 @@ export interface SubtitleConfigInput {
   skippedSentences: number[];
 }
 
+/** Video URLs stored as full http(s) links point to an externally hosted stream (e.g. TED HLS), not to a COS object key. */
+export function isExternalVideoUrl(videoUrl: string): boolean {
+  return /^https?:\/\//i.test(videoUrl.trim());
+}
+
+export function isHlsVideoUrl(videoUrl: string): boolean {
+  return /\.m3u8($|\?)/i.test(videoUrl);
+}
+
 /**
  * Derive the effective subtitle list for a user from raw parsed subtitles
  * and the user's merge/skip configuration.

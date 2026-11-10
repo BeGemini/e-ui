@@ -8,6 +8,8 @@
 export interface User {
   userId: string;
   email: string;
+  name?: string | null;
+  avatarUrl?: string | null;
   passwordHash: string;
   role: 'admin' | 'user';
   registrationDate: Date;
@@ -42,6 +44,7 @@ export interface Season {
   seasonId: string;
   seriesId: string;
   seasonNumber: number;
+  title?: string | null;
   description?: string;
   totalEpisodes: number;
   createdDate: Date;
@@ -98,9 +101,16 @@ export interface UserDictationAttempt {
 }
 
 export interface WordFeedback {
-  correctWord: string;
+  word: string;
   userWord: string;
-  status: 'correct' | 'acceptable' | 'wrong' | 'missing';
+  status: 'correct' | 'typo' | 'wrong';
+}
+
+export interface PracticeAttempt {
+  sentenceIndex: number;
+  userInput: string;
+  accuracy: number;
+  wordFeedback: WordFeedback[];
 }
 
 // ===== CONFIGURATION ENTITIES =====
@@ -189,6 +199,7 @@ export interface SeriesInfo {
 export interface SeasonInfo {
   seasonId: string;
   seasonNumber: number;
+  title?: string | null;
   description?: string;
   episodes: EpisodeInfo[];
 }
@@ -246,6 +257,30 @@ export interface SaveProgressResponse {
   currentSentenceIndex: number;
   isCompleted: boolean;
   overallAccuracy?: number;
+}
+
+// POST /api/practice/[exerciseId]/save-attempt request body
+export interface SaveAttemptRequest {
+  sentenceIndex: number; // integer, >= 0
+  userInput: string; // non-empty after trim
+  correctText: string; // original sentence snapshot, non-empty
+  accuracy: number; // 0–100
+  wordFeedback?: WordFeedback[];
+}
+
+// One saved sentence in "My Sentences"
+export interface MySentence {
+  sentenceIndex: number; // 0-based
+  userInput: string; // empty string means the sentence was skipped
+  correctAnswer: string; // original sentence snapshot
+  savedAt: string; // ISO 8601
+}
+
+// GET /api/practice/[exerciseId]/sentences response
+export interface MySentencesResponse {
+  success: true;
+  exercise: { exerciseId: string; title: string };
+  sentences: MySentence[]; // ascending by sentenceIndex, at most one per index
 }
 
 // Subtitle Configuration
@@ -314,54 +349,54 @@ export interface CosConfig {
   secretKey: string;
 }
 
-// ===== KNOWLEDGE POINT ENTITIES =====
+// ===== NOTE ENTITIES =====
 
-export type KnowledgePointCategory = 'word' | 'phrase' | 'sentence';
+export type NoteCategory = 'word' | 'phrase' | 'sentence';
 
-export interface KnowledgePointCategoryConfig {
-  category: KnowledgePointCategory;
+export interface NoteCategoryConfig {
+  category: NoteCategory;
   label: string;
   colorClass: string;
   fallbackColor: string;
 }
 
-export interface KnowledgePoint {
-  knowledgePointId: string;
+export interface Note {
+  noteId: string;
   userId: string;
   exerciseId: string;
   sourceSentenceIndex: number;
   capturedText: string;
-  category: KnowledgePointCategory;
+  category: NoteCategory;
   description: string;
   createdDate: string;
   updatedDate: string;
 }
 
-export interface KnowledgePointCreateRequest {
+export interface NoteCreateRequest {
   sourceSentenceIndex: number;
   capturedText: string;
-  category: KnowledgePointCategory;
+  category: NoteCategory;
   description: string;
 }
 
-export interface KnowledgePointUpdateRequest {
-  category?: KnowledgePointCategory;
+export interface NoteUpdateRequest {
+  category?: NoteCategory;
   description?: string;
 }
 
-export interface ExerciseWithKnowledgePointCount {
-  knowledgePointCount: number;
+export interface ExerciseWithNoteCount {
+  noteCount: number;
 }
 
-// ===== AI KNOWLEDGE POINT TEACHING =====
+// ===== AI NOTE TEACHING =====
 
-export interface AiKnowledgePointTeachRequest {
+export interface AiNoteTeachRequest {
   capturedText: string;
-  category: KnowledgePointCategory;
+  category: NoteCategory;
   sourceSentence: string;
 }
 
-export interface AiKnowledgePointTeachResponse {
+export interface AiNoteTeachResponse {
   explanation: string;
 }
 
@@ -406,15 +441,186 @@ export interface EnvironmentVariables {
   DEEPSEEK_MODEL?: string;
 }
 
-// Knowledge point category colors (application constants)
-export const KNOWLEDGE_POINT_CATEGORIES: KnowledgePointCategoryConfig[] = [
+// Note category colors (application constants)
+export const NOTE_CATEGORIES: NoteCategoryConfig[] = [
   { category: 'word', label: 'Word', colorClass: 'bg-blue-200 text-blue-900', fallbackColor: '#bfdbfe' },
   { category: 'phrase', label: 'Phrase', colorClass: 'bg-green-200 text-green-900', fallbackColor: '#bbf7d0' },
   { category: 'sentence', label: 'Sentence', colorClass: 'bg-purple-200 text-purple-900', fallbackColor: '#e9d5ff' },
 ];
 
-export const KNOWLEDGE_POINT_CATEGORY_MAP: Record<KnowledgePointCategory, KnowledgePointCategoryConfig> = {
-  word: KNOWLEDGE_POINT_CATEGORIES[0],
-  phrase: KNOWLEDGE_POINT_CATEGORIES[1],
-  sentence: KNOWLEDGE_POINT_CATEGORIES[2],
+export const NOTE_CATEGORY_MAP: Record<NoteCategory, NoteCategoryConfig> = {
+  word: NOTE_CATEGORIES[0],
+  phrase: NOTE_CATEGORIES[1],
+  sentence: NOTE_CATEGORIES[2],
 };
+
+// ===== ADMIN CONTENT MANAGEMENT =====
+
+export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
+
+export type ProbeErrorCode =
+  | 'INVALID_KEY'
+  | 'FOREIGN_HOST'
+  | 'UNSUPPORTED_EXTENSION'
+  | 'NOT_FOUND'
+  | 'TIMEOUT'
+  | 'FETCH_FAILED'
+  | 'NOT_ISO_BMFF'
+  | 'DURATION_UNREADABLE'
+  | 'NOT_UTF8'
+  | 'PARSE_FAILED'
+  | 'EMPTY_SUBTITLE'
+  | 'SUBTITLE_EXCEEDS_VIDEO';
+
+export interface ProbeIssue {
+  code: ProbeErrorCode;
+  message: string;
+}
+
+export interface VideoProbe {
+  key: string;
+  ok: boolean;
+  durationSeconds?: number;
+  error?: ProbeIssue;
+}
+
+export interface SubtitleProbe {
+  key: string;
+  ok: boolean;
+  subtitleFormat?: Exercise['subtitleFormat'];
+  totalSentences?: number;
+  lastCueEndSeconds?: number;
+  error?: ProbeIssue;
+}
+
+export interface ExerciseProbeResult {
+  ok: boolean;
+  video: VideoProbe;
+  subtitle: SubtitleProbe;
+  warnings: ProbeIssue[];
+}
+
+export interface AdminExerciseNode {
+  exerciseId: string;
+  title: string;
+  subtitleFormat: Exercise['subtitleFormat'];
+  totalSentences: number;
+  durationSeconds: number;
+}
+
+export interface AdminEpisodeNode {
+  episodeId: string;
+  episodeNumber: number;
+  title: string;
+  totalExercises: number;
+  exercises: AdminExerciseNode[];
+}
+
+export interface AdminSeasonNode {
+  seasonId: string;
+  seasonNumber: number;
+  title: string | null;
+  totalEpisodes: number;
+  episodes: AdminEpisodeNode[];
+}
+
+export interface AdminSeriesNode {
+  seriesId: string;
+  title: string;
+  difficulty: Difficulty;
+  totalEpisodes: number;
+  seasons: AdminSeasonNode[];
+}
+
+export interface AdminContentTree {
+  series: AdminSeriesNode[];
+}
+
+export interface AdminSeriesCreateRequest {
+  title: string;
+  difficulty: Difficulty;
+  description?: string;
+  genre?: string;
+  coverImageUrl?: string;
+}
+
+export interface AdminSeasonCreateRequest {
+  seriesId: string;
+  seasonNumber: number;
+  title?: string;
+  description?: string;
+}
+
+export interface AdminEpisodeCreateRequest {
+  seasonId: string;
+  episodeNumber: number;
+  title: string;
+  description?: string;
+}
+
+export interface AdminExerciseProbeRequest {
+  videoUrl: string;
+  subtitleUrl: string;
+}
+
+export interface AdminExerciseCreateRequest extends AdminExerciseProbeRequest {
+  episodeId: string;
+  title: string;
+  difficulty?: Difficulty | null;
+}
+
+export interface AdminErrorResponse {
+  error: string;
+  field?: string;
+  fieldErrors?: Record<string, string[]>;
+}
+
+export interface AdminExerciseCreateResponse {
+  exerciseId: string;
+  probe: ExerciseProbeResult;
+}
+
+export type TedFetchStatus = 'idle' | 'fetching' | 'success' | 'error';
+
+export type TedFetchErrorCode =
+  | 'INVALID_URL'
+  | 'TALK_NOT_FOUND'
+  | 'VIDEO_UNAVAILABLE'
+  | 'ENGLISH_SUBTITLES_UNAVAILABLE'
+  | 'FFMPEG_UNAVAILABLE'
+  | 'MEDIA_CONVERSION_FAILED'
+  | 'STORAGE_UPLOAD_FAILED'
+  | 'RESOURCE_VALIDATION_FAILED'
+  | 'UPSTREAM_FETCH_FAILED'
+  | 'TIMEOUT';
+
+export interface TedFetchRequest {
+  url: string;
+  /** When false, the video stays on TED's CDN and only subtitles are saved to COS. Defaults to true. */
+  uploadToCos?: boolean;
+}
+
+export interface TedTalkSource {
+  url: string;
+  slug: string;
+  tedId: string;
+  title: string;
+  canonicalUrl?: string;
+}
+
+export interface TedMediaResources {
+  hlsStreamUrl: string;
+  hlsMetadataUrl: string;
+  englishVttUrl: string;
+  durationSeconds?: number;
+}
+
+export interface TedFetchSuccessResponse {
+  videoUrl: string;
+  subtitleUrl: string;
+  probe: ExerciseProbeResult;
+}
+
+export interface TedFetchErrorResponse extends AdminErrorResponse {
+  code?: TedFetchErrorCode;
+}

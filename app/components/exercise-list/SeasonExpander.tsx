@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { seasonLabel } from '@/lib/season';
 import ExerciseDetail from './ExerciseDetail';
 
 interface Episode {
@@ -22,6 +23,7 @@ interface Exercise {
 interface Season {
   seasonId: string;
   seasonNumber: number;
+  title?: string | null;
   episodes: Episode[];
 }
 
@@ -45,7 +47,7 @@ export default function SeasonExpander({ season }: SeasonExpanderProps) {
       >
         <div className="flex items-center gap-2 flex-1">
           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          <span className="font-medium">Season {season.seasonNumber}</span>
+          <span className="font-medium">{seasonLabel(season)}</span>
           <span className="text-xs text-muted-foreground ml-auto">
             {season.episodes.length} episodes • {totalExercises} exercises
           </span>

@@ -71,15 +71,49 @@ describe('Accuracy Checker', () => {
 
   it('should handle extra words in user input', () => {
     const result = checkAccuracy('hello beautiful world', 'hello world');
-    expect(result.accuracy).toBeLessThan(100);
-    expect(result.wordFeedback).toContainEqual(
-      expect.objectContaining({ status: 'wrong' })
-    );
+    expect(result.wordFeedback).toEqual([
+      { word: 'hello', userWord: 'hello', status: 'correct' },
+      { word: '', userWord: 'beautiful', status: 'wrong' },
+      { word: 'world', userWord: 'world', status: 'correct' },
+    ]);
   });
 
   it('should handle missing words', () => {
     const result = checkAccuracy('hello', 'hello world');
     expect(result.accuracy).toBeLessThan(100);
+  });
+
+  it('should align words after omissions without shifting subsequent feedback', () => {
+    const result = checkAccuracy(
+      "There's fundamental paraducts right at this core of human life.",
+      "There's a fundamental paradox right at the core of human life."
+    );
+
+    expect(result.accuracy).toBe(82);
+    expect(result.wordFeedback).toEqual([
+      { word: "there's", userWord: "there's", status: 'correct' },
+      { word: 'a', userWord: '', status: 'wrong' },
+      { word: 'fundamental', userWord: 'fundamental', status: 'correct' },
+      { word: 'paradox', userWord: 'paraducts', status: 'wrong' },
+      { word: 'right', userWord: 'right', status: 'correct' },
+      { word: 'at', userWord: 'at', status: 'correct' },
+      { word: 'the', userWord: 'this', status: 'typo' },
+      { word: 'core', userWord: 'core', status: 'correct' },
+      { word: 'of', userWord: 'of', status: 'correct' },
+      { word: 'human', userWord: 'human', status: 'correct' },
+      { word: 'life', userWord: 'life', status: 'correct' },
+    ]);
+  });
+
+  it('should treat curly and straight apostrophes as equivalent', () => {
+    const result = checkAccuracy(
+      "We feel grateful but don't express it.",
+      'We feel grateful but don’t express it.'
+    );
+    expect(result.accuracy).toBe(100);
+    result.wordFeedback.forEach((feedback) => {
+      expect(feedback.status).toBe('correct');
+    });
   });
 
   it('should handle punctuation', () => {

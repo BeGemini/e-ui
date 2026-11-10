@@ -1,15 +1,15 @@
 {
-  "version": "0.12.16",
+  "version": "1.2.4",
   "integration_state_schema": 1,
   "installed_integrations": [
-    "copilot"
+    "kimi"
   ],
   "integration_settings": {
-    "copilot": {
+    "kimi": {
       "script": "sh",
-      "invoke_separator": "."
+      "invoke_separator": "-"
     }
   },
-  "integration": "copilot",
-  "default_integration": "copilot"
+  "integration": "kimi",
+  "default_integration": "kimi"
 }

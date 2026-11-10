@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     // Get full user profile from database
     const user = await queryOne<User>(
-      'SELECT userId, email, role, registrationDate, lastLoginDate FROM User WHERE userId = ?',
+      'SELECT userId, email, name, avatarUrl, role, registrationDate, lastLoginDate FROM User WHERE userId = ?',
       [session.userId]
     );
 
@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
         user: {
           userId: user.userId,
           email: user.email,
+          name: user.name,
+          avatarUrl: user.avatarUrl,
           role: user.role,
           registrationDate: user.registrationDate,
           lastLoginDate: user.lastLoginDate,

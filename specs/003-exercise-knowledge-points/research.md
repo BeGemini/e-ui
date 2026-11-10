@@ -8,7 +8,7 @@
 
 All significant unknowns were resolved during the `/speckit.clarify` session:
 
-1. **Interaction for creating knowledge points**: Replaced the original right-click requirement with a floating action menu that appears after any text selection. The design target is PC-first; touch devices use the same menu.
+1. **Interaction for creating knowledge points**: Replaced the original right-click requirement with a floating action menu that appears after any text selection. The design target is desktop only.
 2. **Duplicate knowledge points**: Identical text saved twice is ignored; the existing knowledge point description may be surfaced.
 3. **Partial word selection**: Selection is normalized to whole word boundaries within the current subtitle sentence.
 4. **Cross-sentence selection**: Knowledge points can only be created from the current subtitle sentence; cross-sentence selections do not trigger the create action.
@@ -40,7 +40,7 @@ All significant unknowns were resolved during the `/speckit.clarify` session:
 
 ## Alternatives Considered
 
-- **Separate floating menu vs. inline toolbar**: Floating menu was chosen because it is contextually tied to the text selection and works for both desktop and touch.
+- **Separate floating menu vs. inline toolbar**: Floating menu was chosen because it is contextually tied to the text selection.
 - **Fuzzy matching for stale highlights**: Rejected because exact matching is simpler and the requirement is to highlight captured text; fuzzy matching could highlight unintended text.
 - **Delete knowledge points when text no longer matches**: Rejected to avoid data loss; the user's notes may still be valuable.
 
