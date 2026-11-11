@@ -65,6 +65,7 @@ async function getResponse(url: string, signal: AbortSignal | undefined, accept:
     });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') throw error;
+    console.error('[ted-talk] upstream fetch failed:', url, error);
     throw new TedTalkError('UPSTREAM_FETCH_FAILED', 'Could not reach TED. Please retry.');
   }
 }

@@ -10,6 +10,7 @@ import { listPracticeAttempts } from '@/lib/dictation-attempts';
 
 interface ExerciseWithSubtitles extends Exercise {
   videoUrl: string;
+  videoFallbackUrl: string | null;
   subtitles: EffectiveSubtitle[];
   userConfig?: UserSubtitleConfig | null;
   userProgress?: {
@@ -62,6 +63,11 @@ export async function GET(
     const videoUrl = isExternalVideoUrl(exercise.videoUrl)
       ? exercise.videoUrl
       : `/api/video/${exercise.videoUrl}`;
+    const videoFallbackUrl = exercise.videoFallbackUrl
+      ? isExternalVideoUrl(exercise.videoFallbackUrl)
+        ? exercise.videoFallbackUrl
+        : `/api/video/${exercise.videoFallbackUrl}`
+      : null;
 
     // Fetch subtitles from COS
     let subtitles: ParsedSubtitle[] = [];
@@ -157,6 +163,7 @@ export async function GET(
     const result: ExerciseWithSubtitles = {
       ...exercise,
       videoUrl,
+      videoFallbackUrl,
       totalSentences,
       subtitles: processedSubtitles,
       userConfig: userConfig || null,

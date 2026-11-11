@@ -23,6 +23,7 @@ interface Subtitle {
 interface PracticeData {
   exerciseId: string;
   videoUrl: string;
+  videoFallbackUrl?: string | null;
   subtitleFormat: string;
   totalSentences: number;
   durationSeconds: number;
@@ -411,6 +412,7 @@ export default function PracticePage() {
               <VideoPlayer
                 ref={videoPlayerRef}
                 videoUrl={practiceData.videoUrl}
+                videoFallbackUrl={practiceData.videoFallbackUrl}
                 subtitles={practiceData.subtitles}
                 currentSentenceIndex={currentSentenceIndex}
                 totalSentences={totalSentences}

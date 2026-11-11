@@ -12,6 +12,10 @@ export const PLAYBACK_RATES = [0.25, 0.5, 1, 1.25, 1.5] as const;
 export type PlaybackRate = (typeof PLAYBACK_RATES)[number];
 const DEFAULT_PLAYBACK_RATE: PlaybackRate = 1;
 const PLAYBACK_RATE_ITEMS = PLAYBACK_RATES.map((r) => ({ value: r, label: `${r}x` }));
+// How long initial loading may stall before the player switches to the fallback source.
+const LOAD_WATCHDOG_MS = 20_000;
+// How long the "switched source" toast stays visible.
+const FALLBACK_NOTICE_MS = 3_000;
 
 function isPlaybackRate(v: unknown): v is PlaybackRate {
   return PLAYBACK_RATES.includes(v as PlaybackRate);
@@ -21,6 +25,9 @@ type Segment = { index: number; startSeconds: number; endSeconds: number };
 
 interface VideoPlayerProps {
   videoUrl: string;
+  /** Backup source (e.g. COS copy of a TED video). When the primary source
+   *  stalls or fails with a network error, the player switches to it once. */
+  videoFallbackUrl?: string | null;
   subtitles: Array<{
     index: number;
     text: string;
@@ -47,6 +54,7 @@ export interface VideoPlayerRef {
 
 export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function VideoPlayer({
   videoUrl,
+  videoFallbackUrl,
   subtitles,
   currentSentenceIndex,
   totalSentences: totalSentencesProp,
@@ -68,6 +76,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [videoUrlWithToken, setVideoUrlWithToken] = useState<string>('');
+  const [videoFallbackUrlWithToken, setVideoFallbackUrlWithToken] = useState<string>('');
+  const [useFallback, setUseFallback] = useState(false);
+  const [fallbackNotice, setFallbackNotice] = useState(false);
+  const switchedToFallbackRef = useRef(false);
+  const loadWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [playbackRate, setPlaybackRate] = useState<PlaybackRate>(DEFAULT_PLAYBACK_RATE);
 
@@ -158,13 +171,80 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
     }
   }, [videoUrl]);
 
+  // Same token handling for the fallback source.
+  useEffect(() => {
+    if (!videoFallbackUrl) {
+      setVideoFallbackUrlWithToken('');
+      return;
+    }
+    if (isExternalVideoUrl(videoFallbackUrl)) {
+      setVideoFallbackUrlWithToken(videoFallbackUrl);
+      return;
+    }
+    const token = localStorage.getItem('token');
+    setVideoFallbackUrlWithToken(
+      token ? `${videoFallbackUrl}?token=${encodeURIComponent(token)}` : videoFallbackUrl
+    );
+  }, [videoFallbackUrl]);
+
+  // A new exercise resets the fallback switch.
+  useEffect(() => {
+    switchedToFallbackRef.current = false;
+    setUseFallback(false);
+  }, [videoUrl]);
+
+  const activeVideoUrl = useFallback && videoFallbackUrlWithToken ? videoFallbackUrlWithToken : videoUrlWithToken;
+
+  // Get current subtitle (API already filters skipped ones)
+  const currentSubtitle = currentSentenceIndex < subtitles.length ? subtitles[currentSentenceIndex] : null;
+
+  // Use the authoritative total sentence count when provided; otherwise fall
+  // back to the effective subtitle array length.
+  const totalSentences = totalSentencesProp ?? subtitles.length;
+
+  // Switch to the fallback source once, resuming at the current sentence.
+  const switchToFallback = useCallback(() => {
+    if (switchedToFallbackRef.current || !videoFallbackUrlWithToken) return;
+    switchedToFallbackRef.current = true;
+    pendingSeekRef.current = currentSubtitle?.startSeconds ?? null;
+    setUseFallback(true);
+    setFallbackNotice(true);
+  }, [videoFallbackUrlWithToken, currentSubtitle]);
+
+  // Latest-callback ref so the hls.js effect and DOM handlers never go stale.
+  const switchToFallbackRef = useRef(switchToFallback);
+  switchToFallbackRef.current = switchToFallback;
+
+  // Auto-dismiss the "switched source" notice.
+  useEffect(() => {
+    if (!fallbackNotice) return;
+    const timer = setTimeout(() => setFallbackNotice(false), FALLBACK_NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [fallbackNotice]);
+
+  // Watchdog: if a source stays unplayable for too long (e.g. the manifest
+  // request hangs until ERR_TIMED_OUT), treat it as a timeout and fall back.
+  const clearLoadWatchdog = useCallback(() => {
+    if (loadWatchdogRef.current) {
+      clearTimeout(loadWatchdogRef.current);
+      loadWatchdogRef.current = null;
+    }
+  }, []);
+  const armLoadWatchdog = useCallback(() => {
+    clearLoadWatchdog();
+    loadWatchdogRef.current = setTimeout(() => {
+      switchToFallbackRef.current();
+    }, LOAD_WATCHDOG_MS);
+  }, [clearLoadWatchdog]);
+  useEffect(() => clearLoadWatchdog, [clearLoadWatchdog]);
+
   // HLS sources (e.g. TED streams) need hls.js except where the browser plays
   // HLS natively (Safari). The decision is made at render time: while MSE is in
   // use the <video> src stays unset from the very first frame, because removing
   // a React-managed src after hls.js attached its MediaSource would reset the
   // media element and detach the stream. The video element only renders after
   // the client-only token effect anyway, so reading window here is safe.
-  const isHlsSource = isHlsVideoUrl(videoUrlWithToken);
+  const isHlsSource = isHlsVideoUrl(activeVideoUrl);
   const useMse = isHlsSource && typeof window !== 'undefined' && Hls.isSupported();
   useEffect(() => {
     const video = videoRef.current;
@@ -176,22 +256,22 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
       backBufferLength: 30,
       capLevelToPlayerSize: true,
     });
-    hls.loadSource(videoUrlWithToken);
+    // Retries exhausted on a network level (manifest/segment timeout or
+    // unreachable host) — switch to the fallback source instead of hanging.
+    hls.on(Hls.Events.ERROR, (_event, data) => {
+      if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+        switchToFallbackRef.current();
+      }
+    });
+    hls.loadSource(activeVideoUrl);
     hls.attachMedia(video);
     return () => hls.destroy();
-  }, [videoUrlWithToken, useMse]);
+  }, [activeVideoUrl, useMse]);
 
-  // Re-run when the <video> element first mounts (videoUrlWithToken becomes non-empty).
+  // Re-run when the <video> element first mounts (activeVideoUrl becomes non-empty).
   useEffect(() => {
     applyPlaybackRate();
-  }, [applyPlaybackRate, videoUrlWithToken]);
-
-  // Get current subtitle (API already filters skipped ones)
-  const currentSubtitle = currentSentenceIndex < subtitles.length ? subtitles[currentSentenceIndex] : null;
-
-  // Use the authoritative total sentence count when provided; otherwise fall
-  // back to the effective subtitle array length.
-  const totalSentences = totalSentencesProp ?? subtitles.length;
+  }, [applyPlaybackRate, activeVideoUrl]);
 
   const seekTo = useCallback((targetTime: number) => {
     const video = videoRef.current;
@@ -289,6 +369,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
 
   const handleCanPlay = useCallback(() => {
     const video = videoRef.current;
+    clearLoadWatchdog();
     setIsReady(true);
     setIsLoading(false);
     applyPendingSeek();
@@ -300,7 +381,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
         setIsPlaying(false);
       });
     }
-  }, [applyPendingSeek]);
+  }, [applyPendingSeek, clearLoadWatchdog]);
 
   const handlePlay = useCallback(() => {
     setIsPlaying(true);
@@ -378,10 +459,10 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
         <div className="flex-1 min-w-0 space-y-4">
           {/* Video Element */}
           <div className="relative w-full rounded-lg bg-black">
-            {videoUrlWithToken ? (
+            {activeVideoUrl ? (
               <video
                 ref={videoRef}
-                src={useMse ? undefined : videoUrlWithToken}
+                src={useMse ? undefined : activeVideoUrl}
                 className="w-full rounded-lg bg-black"
                 crossOrigin="anonymous"
                 onLoadStart={() => {
@@ -389,13 +470,17 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
                   setIsReady(false);
                   pendingPlayRef.current = false;
                   cancelPendingSeekPlay();
+                  armLoadWatchdog();
                 }}
                 onLoadedMetadata={handleLoadedMetadata}
                 onCanPlay={handleCanPlay}
                 onTimeUpdate={handleTimeUpdate}
                 onPlay={handlePlay}
                 onPause={handlePause}
-                onError={() => setIsLoading(false)}
+                onError={() => {
+                  setIsLoading(false);
+                  switchToFallbackRef.current();
+                }}
               />
             ) : (
               <div className="w-full aspect-video rounded-lg bg-gray-800 flex items-center justify-center">
@@ -410,6 +495,16 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
                   <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-600 border-t-blue-500"></div>
                   <span className="text-sm text-gray-400">Loading video...</span>
                 </div>
+              </div>
+            )}
+
+            {/* Fallback notice toast (auto-dismisses) */}
+            {fallbackNotice && (
+              <div
+                role="status"
+                className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-md bg-gray-900/90 px-4 py-2 text-sm text-white shadow-lg"
+              >
+                视频加载超时，已切换播放源
               </div>
             )}
           </div>

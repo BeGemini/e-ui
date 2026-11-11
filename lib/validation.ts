@@ -165,6 +165,8 @@ export const AdminExerciseCreateSchema = AdminExerciseProbeSchema.extend({
   episodeId: parentId('episode'),
   title: requiredText(255, 'Title'),
   difficulty: DifficultySchema.nullish(),
+  /** COS backup video for externally hosted primaries (e.g. TED HLS streams). */
+  videoFallbackUrl: requiredText(500, 'Video fallback').optional(),
 });
 
 export const AdminExerciseFetchTedSchema = z.object({
@@ -182,5 +184,4 @@ export const AdminExerciseFetchTedSchema = z.object({
       return false;
     }
   }, 'Enter a valid TED Talk URL'),
-  uploadToCos: z.boolean().optional().default(true),
 });

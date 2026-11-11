@@ -5,7 +5,7 @@ import { initializeDatabase, queryOne, execute } from '@/lib/db';
 import { UserExerciseProgress, UserSubtitleConfig, Exercise, MergeGroup } from '@/lib/types';
 import { downloadFile } from '@/lib/cos-client';
 import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
-import { applySubtitleConfig, SubtitleConfigInput } from '@/lib/utils';
+import { applySubtitleConfig, getLockedOriginalCount, SubtitleConfigInput } from '@/lib/utils';
 
 function safeParseJson<T>(value: unknown, fallback: T): T {
   if (!value) return fallback;
@@ -144,6 +144,24 @@ export async function PUT(
     const existingGroupKeys = new Set(existingGroups.map(existingGroupKey));
     const existingSkippedSet = new Set(existingSkipped);
 
+    // currentSentenceIndex is an index into the effective subtitle list served
+    // during practice (merges applied, skipped omitted), while merge groups and
+    // skipped sentences use original indices. Translate progress into original
+    // index space before enforcing the read-only constraint.
+    const lockedOriginalCount = await getLockedOriginalCountForExercise(
+      exerciseId,
+      {
+        mergedGroups: existingGroups.map((g) => ({
+          startIndex: g.startIndex ?? g.start ?? 0,
+          endIndex: g.endIndex ?? g.end ?? 0,
+          label: g.label,
+          customText: g.customText,
+        })),
+        skippedSentences: existingSkipped,
+      },
+      currentProgress
+    );
+
     // Validate merged groups don't modify already completed sentences
     if (mergedGroups && Array.isArray(mergedGroups)) {
       for (const group of mergedGroups) {
@@ -172,9 +190,9 @@ export async function PUT(
           customText: group.customText,
         };
         const isExistingUnchanged = existingGroupKeys.has(existingGroupKey(normalizedGroup));
-        if (!isExistingUnchanged && startIndex < currentProgress) {
+        if (!isExistingUnchanged && startIndex < lockedOriginalCount) {
           return NextResponse.json(
-            { error: `Cannot modify merge group starting at sentence ${startIndex}. Already completed up to sentence ${currentProgress - 1}. Read-only constraint enforced.` },
+            { error: `Cannot modify merge group starting at sentence ${startIndex}. Already completed up to sentence ${lockedOriginalCount - 1}. Read-only constraint enforced.` },
             { status: 400 }
           );
         }
@@ -205,9 +223,9 @@ export async function PUT(
     if (skippedSentences && Array.isArray(skippedSentences)) {
       for (const sentenceIndex of skippedSentences) {
         // Only enforce read-only for newly added skips
-        if (!existingSkippedSet.has(sentenceIndex) && sentenceIndex < currentProgress) {
+        if (!existingSkippedSet.has(sentenceIndex) && sentenceIndex < lockedOriginalCount) {
           return NextResponse.json(
-            { error: `Cannot skip sentence ${sentenceIndex}. Already completed up to sentence ${currentProgress - 1}. Read-only constraint enforced.` },
+            { error: `Cannot skip sentence ${sentenceIndex}. Already completed up to sentence ${lockedOriginalCount - 1}. Read-only constraint enforced.` },
             { status: 400 }
           );
         }
@@ -383,5 +401,52 @@ async function computeEffectiveSentenceCount(
   } catch (error) {
     console.error('Error computing effective sentence count:', error);
     return null;
+  }
+}
+
+/**
+ * Translate practice progress (an index into the effective subtitle list
+ * served during practice) into a count of original subtitles that are
+ * read-only. Falls back to the raw progress value when the subtitle file
+ * cannot be fetched/parsed, matching the previous behavior.
+ */
+async function getLockedOriginalCountForExercise(
+  exerciseId: string,
+  config: SubtitleConfigInput,
+  currentProgress: number
+): Promise<number> {
+  if (currentProgress <= 0) {
+    return 0;
+  }
+  try {
+    const exercise = await queryOne<Exercise>(
+      'SELECT * FROM Exercise WHERE exerciseId = ?',
+      [exerciseId]
+    );
+
+    if (!exercise) {
+      return currentProgress;
+    }
+
+    const subtitleContent = await downloadFile(exercise.subtitleUrl);
+    const format = detectSubtitleFormat(exercise.subtitleUrl);
+
+    if (!format || !subtitleContent) {
+      return currentProgress;
+    }
+
+    const contentStr = typeof subtitleContent === 'string'
+      ? subtitleContent
+      : subtitleContent.toString('utf-8');
+
+    const rawSubtitles = parseSubtitles(contentStr, format);
+    if (rawSubtitles.length === 0) {
+      return currentProgress;
+    }
+
+    return getLockedOriginalCount(rawSubtitles, config, currentProgress);
+  } catch (error) {
+    console.error('Error translating practice progress to original indices:', error);
+    return currentProgress;
   }
 }

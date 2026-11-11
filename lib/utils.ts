@@ -132,17 +132,52 @@ export function applySubtitleConfig(
 
 /**
  * Apply subtitle configuration and lock state for the editor.
+ *
+ * `lockedOriginalCount` is a count in ORIGINAL subtitle index space (see
+ * getLockedOriginalCount) — not the effective sentence index stored in
+ * UserExerciseProgress.currentSentenceIndex.
  */
 export function applySubtitleConfigWithLock(
   rawSubtitles: ParsedSubtitle[],
   config: Partial<SubtitleConfigInput>,
-  currentProgress: number
+  lockedOriginalCount: number
 ): EffectiveSubtitle[] {
   const effective = applySubtitleConfig(rawSubtitles, config);
   return effective.map((sub) => ({
     ...sub,
-    isLocked: sub.originalIndices.every((i) => i < currentProgress),
+    isLocked: sub.originalIndices.every((i) => i < lockedOriginalCount),
   }));
+}
+
+/**
+ * Translate practice progress into original-subtitle index space.
+ *
+ * UserExerciseProgress.currentSentenceIndex is an index into the effective
+ * subtitle list served during practice — merges applied and skipped sentences
+ * omitted. Merge groups and skipped sentences are expressed in original
+ * indices, so lock checks must use the count of original subtitles covered by
+ * the first `currentProgress` effective sentences instead.
+ */
+export function getLockedOriginalCount(
+  rawSubtitles: ParsedSubtitle[],
+  config: Partial<SubtitleConfigInput>,
+  currentProgress: number
+): number {
+  if (currentProgress <= 0) {
+    return 0;
+  }
+  const effective = applySubtitleConfig(rawSubtitles, config, { omitSkipped: true });
+  if (currentProgress >= effective.length) {
+    return rawSubtitles.length;
+  }
+  let lockedCount = 0;
+  for (let i = 0; i < currentProgress; i++) {
+    const lastOriginal = effective[i].originalIndices[effective[i].originalIndices.length - 1];
+    if (lastOriginal + 1 > lockedCount) {
+      lockedCount = lastOriginal + 1;
+    }
+  }
+  return lockedCount;
 }
 
 /**

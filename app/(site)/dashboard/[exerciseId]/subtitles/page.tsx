@@ -8,7 +8,7 @@ import { MergeGroupEditor } from '@/app/components/subtitle-editor/MergeGroupEdi
 import { SkipSentenceEditor } from '@/app/components/subtitle-editor/SkipSentenceEditor';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { applySubtitleConfigWithLock, getMergedOriginalIndices } from '@/lib/utils';
+import { applySubtitleConfigWithLock, getLockedOriginalCount, getMergedOriginalIndices } from '@/lib/utils';
 import { ParsedSubtitle, EffectiveSubtitle, MergeGroup } from '@/lib/types';
 
 interface UserProgress {
@@ -24,7 +24,11 @@ export default function SubtitleEditorPage() {
 
   const [rawSubtitles, setRawSubtitles] = useState<ParsedSubtitle[]>([]);
   const [effectiveSubtitles, setEffectiveSubtitles] = useState<EffectiveSubtitle[]>([]);
-  const [currentProgress, setCurrentProgress] = useState(0);
+  // Number of original subtitles covered by the user's practice progress.
+  // currentSentenceIndex is an index into the effective (merged) list, so it
+  // must be translated before comparing against original indices. Computed
+  // once from the saved config; intentionally NOT recomputed while editing.
+  const [lockedOriginalCount, setLockedOriginalCount] = useState(0);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -72,7 +76,6 @@ export default function SubtitleEditorPage() {
         setRawSubtitles(fetchedSubtitles);
         const progress = practiceData.data?.userProgress || null;
         setUserProgress(progress);
-        setCurrentProgress(progress?.currentSentenceIndex ?? 0);
 
         // Get config
         const configRes = await fetch(`/api/subtitles/${exerciseId}/config`, { headers });
@@ -102,6 +105,16 @@ export default function SubtitleEditorPage() {
         setMergeGroups(normalizedMergedGroups);
         setSkippedSentences(normalizedSkippedSentences);
 
+        const lockedCount = getLockedOriginalCount(
+          fetchedSubtitles,
+          {
+            mergedGroups: normalizedMergedGroups,
+            skippedSentences: normalizedSkippedSentences,
+          },
+          progress?.currentSentenceIndex ?? 0
+        );
+        setLockedOriginalCount(lockedCount);
+
         // Compute effective subtitles for the editor (with lock state)
         const effectiveWithLock = applySubtitleConfigWithLock(
           fetchedSubtitles,
@@ -109,7 +122,7 @@ export default function SubtitleEditorPage() {
             mergedGroups: normalizedMergedGroups,
             skippedSentences: normalizedSkippedSentences,
           },
-          progress?.currentSentenceIndex ?? 0
+          lockedCount
         );
         setEffectiveSubtitles(effectiveWithLock);
       } catch (error) {
@@ -171,7 +184,7 @@ export default function SubtitleEditorPage() {
     skips: number[]
   ) => {
     setEffectiveSubtitles(
-      applySubtitleConfigWithLock(rawSubtitles, { mergedGroups: groups, skippedSentences: skips }, currentProgress)
+      applySubtitleConfigWithLock(rawSubtitles, { mergedGroups: groups, skippedSentences: skips }, lockedOriginalCount)
     );
   };
 
@@ -241,7 +254,7 @@ export default function SubtitleEditorPage() {
     // existing merge groups act as hard boundaries.
     const terminatorPattern = /[,.?!;:,.?!:;]/;
     for (let i = 0; i < rawSubtitles.length; i++) {
-      if (i < currentProgress || mergedIndices.has(i)) {
+      if (i < lockedOriginalCount || mergedIndices.has(i)) {
         flush(i - 1);
         continue;
       }
@@ -492,7 +505,7 @@ export default function SubtitleEditorPage() {
           mergeGroups={mergeGroups}
           selectedForMerge={selectedForMerge}
           onCreateFromSelected={handleCreateFromSelected}
-          currentProgress={userProgress.currentSentenceIndex}
+          lockedOriginalCount={lockedOriginalCount}
           onDeleteGroup={handleDeleteGroup}
         />
 

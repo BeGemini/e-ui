@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   // Any client-supplied subtitleFormat/totalSentences/durationSeconds are dropped by the schema.
   const parsed = await parseBody(request, AdminExerciseCreateSchema);
   if ('response' in parsed) return parsed.response;
-  const { episodeId, title, difficulty, videoUrl, subtitleUrl } = parsed.data;
+  const { episodeId, title, difficulty, videoUrl, subtitleUrl, videoFallbackUrl } = parsed.data;
 
   try {
     await initializeDatabase();
@@ -24,8 +24,11 @@ export async function POST(request: NextRequest) {
     ]);
     if (!episode) return notFound('episodeId', 'Episode not found');
 
-    // Server-side probe is authoritative (FR-016).
-    const probe = await probeExercise(videoUrl, subtitleUrl);
+    // Server-side probe is authoritative (FR-016). When a COS fallback exists
+    // (TED flow), probe it instead of the external primary: it validates the
+    // copy the player actually falls back to, and works even when the external
+    // host is unreachable from this server.
+    const probe = await probeExercise(videoFallbackUrl ?? videoUrl, subtitleUrl);
     if (!probe.ok) {
       return NextResponse.json<{ error: string; probe: ExerciseProbeResult }>(
         { error: 'Resource validation failed', probe },
@@ -37,14 +40,15 @@ export async function POST(request: NextRequest) {
     await transaction(async (conn) => {
       await conn.execute(
         `INSERT INTO Exercise
-           (exerciseId, episodeId, title, difficulty, videoUrl, subtitleUrl, subtitleFormat, totalSentences, durationSeconds)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (exerciseId, episodeId, title, difficulty, videoUrl, videoFallbackUrl, subtitleUrl, subtitleFormat, totalSentences, durationSeconds)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           exerciseId,
           episodeId,
           title,
           difficulty ?? null,
-          probe.video.key,
+          videoFallbackUrl ? videoUrl : probe.video.key,
+          videoFallbackUrl ? probe.video.key : null,
           probe.subtitle.key,
           probe.subtitle.subtitleFormat!,
           probe.subtitle.totalSentences!,

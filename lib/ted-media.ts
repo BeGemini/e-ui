@@ -95,35 +95,31 @@ function safePart(value: string, fallback: string): string {
   return normalized || fallback;
 }
 
-export interface TedUploadOptions {
-  /** When false, the video stays on TED's CDN (the stored videoUrl is the HLS
-   *  stream link) and only subtitles are uploaded to COS. Defaults to true. */
-  uploadVideoToCos?: boolean;
-}
-
+/**
+ * Uploads the talk's video (converted to MP4) and subtitles to COS.
+ * The returned `videoUrl` stays TED's HLS stream as the primary playback
+ * source; `videoFallbackUrl` is the COS copy the player falls back to when
+ * the TED stream fails (e.g. network timeouts).
+ */
 export async function uploadTedTalkAssets(
   { source, resources, subtitleContent }: TedTalkAssets,
-  signal?: AbortSignal,
-  { uploadVideoToCos = true }: TedUploadOptions = {}
+  signal?: AbortSignal
 ): Promise<TedFetchSuccessResponse> {
-  if (uploadVideoToCos) await assertFfmpegAvailable(signal);
+  await assertFfmpegAvailable(signal);
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'e-ui-ted-'));
   const outputPath = join(temporaryDirectory, 'talk.mp4');
   const prefix = `TED/${safePart(source.tedId, 'talk')}-${safePart(source.slug, 'talk')}/${randomUUID()}`;
   const subtitleUrl = `${prefix}.vtt`;
-  const videoUrl = uploadVideoToCos ? `${prefix}.mp4` : resources.hlsStreamUrl;
+  const videoFallbackUrl = `${prefix}.mp4`;
+  const videoUrl = resources.hlsStreamUrl;
   const uploadedKeys: string[] = [];
 
   try {
-    if (uploadVideoToCos) {
-      await convertToMp4(resources.hlsStreamUrl, outputPath, signal);
-      signal?.throwIfAborted();
-    }
+    await convertToMp4(resources.hlsStreamUrl, outputPath, signal);
+    signal?.throwIfAborted();
     try {
-      if (uploadVideoToCos) {
-        await uploadFile(videoUrl, createReadStream(outputPath), 'video/mp4');
-        uploadedKeys.push(videoUrl);
-      }
+      await uploadFile(videoFallbackUrl, createReadStream(outputPath), 'video/mp4');
+      uploadedKeys.push(videoFallbackUrl);
       await uploadFile(subtitleUrl, subtitleContent, 'text/vtt; charset=utf-8');
       uploadedKeys.push(subtitleUrl);
     } catch {
@@ -131,9 +127,11 @@ export async function uploadTedTalkAssets(
     }
 
     signal?.throwIfAborted();
+    // Probe the uploaded COS copy: it validates the fallback the player will
+    // actually switch to, and it works even when TED is unreachable from here.
     let probe: TedFetchSuccessResponse['probe'];
     try {
-      probe = await probeExercise(videoUrl, subtitleUrl);
+      probe = await probeExercise(videoFallbackUrl, subtitleUrl);
     } catch {
       throw new TedMediaError('RESOURCE_VALIDATION_FAILED', 'Could not validate the uploaded TED media');
     }
@@ -141,7 +139,7 @@ export async function uploadTedTalkAssets(
       throw new TedMediaError('RESOURCE_VALIDATION_FAILED', 'The uploaded TED media did not pass validation');
     }
     signal?.throwIfAborted();
-    return { videoUrl, subtitleUrl, probe };
+    return { videoUrl, videoFallbackUrl, subtitleUrl, probe };
   } catch (error) {
     await Promise.allSettled(uploadedKeys.map((key) => deleteFile(key)));
     throw error;

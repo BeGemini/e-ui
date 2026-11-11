@@ -34,6 +34,8 @@ export function SubtitleList({
   const [editingText, setEditingText] = useState('');
 
   const editableSubtitles = subtitles.filter((s) => !s.isLocked);
+  // Locked rows always form a prefix of the list, so this count is the range 1–N
+  const lockedRowCount = subtitles.length - editableSubtitles.length;
   // Match practice: a row is excluded only when all of its original indices are skipped
   const skippedSet = new Set(skippedSentences);
   const activeSentenceCount = subtitles.filter(
@@ -77,11 +79,11 @@ export function SubtitleList({
       </div>
 
       {/* Locked Section Warning */}
-      {currentProgress > 0 && (
+      {lockedRowCount > 0 && (
         <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
           <p className="text-sm text-amber-900">
-            <strong>Note:</strong> Sentences 1–{currentProgress} are locked (already practiced).
-            You can only modify sentences after sentence {currentProgress}.
+            <strong>Note:</strong> Sentences 1–{lockedRowCount} are locked (already practiced).
+            You can only modify sentences after sentence {lockedRowCount}.
           </p>
         </div>
       )}
@@ -167,6 +169,11 @@ export function SubtitleList({
                       </span>
                     )}
                   </div>
+
+                  {/* Time range from the subtitle file (merged rows span first start → last end) */}
+                  <p className="mb-1 font-mono text-xs text-gray-500">
+                    {subtitle.startTime} → {subtitle.endTime}
+                  </p>
 
                   {/* Sentence Text / Edit Area */}
                   {isEditing ? (

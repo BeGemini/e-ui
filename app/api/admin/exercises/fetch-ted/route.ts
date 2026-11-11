@@ -56,9 +56,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const assets = await fetchTedTalkAssets(parsed.data.url, controller.signal);
-    const result = await uploadTedTalkAssets(assets, controller.signal, {
-      uploadVideoToCos: parsed.data.uploadToCos,
-    });
+    const result = await uploadTedTalkAssets(assets, controller.signal);
     return NextResponse.json<TedFetchSuccessResponse>(result);
   } catch (error) {
     if (timedOut) {

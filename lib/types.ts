@@ -65,6 +65,8 @@ export interface Exercise {
   episodeId: string;
   title: string;
   videoUrl: string;
+  /** Backup video (COS key) the player switches to when the primary source fails, e.g. TED HLS timeout. */
+  videoFallbackUrl?: string | null;
   subtitleUrl: string;
   subtitleFormat: 'srt' | 'vtt' | 'ssa' | 'ass';
   totalSentences: number;
@@ -596,8 +598,6 @@ export type TedFetchErrorCode =
 
 export interface TedFetchRequest {
   url: string;
-  /** When false, the video stays on TED's CDN and only subtitles are saved to COS. Defaults to true. */
-  uploadToCos?: boolean;
 }
 
 export interface TedTalkSource {
@@ -616,7 +616,10 @@ export interface TedMediaResources {
 }
 
 export interface TedFetchSuccessResponse {
+  /** Primary playback source: TED's HLS stream. */
   videoUrl: string;
+  /** COS copy of the video; the player falls back to it when the TED stream fails. */
+  videoFallbackUrl: string;
   subtitleUrl: string;
   probe: ExerciseProbeResult;
 }

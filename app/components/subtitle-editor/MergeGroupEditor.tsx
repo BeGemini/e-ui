@@ -9,7 +9,8 @@ interface MergeGroupEditorProps {
   mergeGroups: MergeGroup[];
   selectedForMerge: number[];
   onCreateFromSelected: (label: string) => void;
-  currentProgress?: number;
+  /** Count of original subtitles already practiced; groups starting below it are read-only */
+  lockedOriginalCount?: number;
   onDeleteGroup?: (startIndex: number) => void;
 }
 
@@ -17,7 +18,7 @@ export function MergeGroupEditor({
   mergeGroups,
   selectedForMerge,
   onCreateFromSelected,
-  currentProgress = 0,
+  lockedOriginalCount = 0,
   onDeleteGroup,
 }: MergeGroupEditorProps) {
   const [labelForSelected, setLabelForSelected] = useState('');
@@ -33,8 +34,10 @@ export function MergeGroupEditor({
   };
 
   return (
-    <div className="space-y-4 rounded-lg border border-gray-200 bg-white p-4">
-      <h3 className="font-semibold text-gray-900">Merge Groups</h3>
+    <div className="flex h-96 flex-col rounded-lg border border-gray-200 bg-white p-4">
+      <h3 className="mb-4 font-semibold text-gray-900">Merge Groups</h3>
+
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
 
       {mergeGroups.length === 0 && selectedForMerge.length < 2 && (
         <p className="text-sm text-gray-500">
@@ -72,7 +75,7 @@ export function MergeGroupEditor({
       {mergeGroups.length > 0 && (
         <div className="space-y-2">
           {mergeGroups.map((group) => {
-            const isLocked = group.startIndex < currentProgress;
+            const isLocked = group.startIndex < lockedOriginalCount;
             return (
               <div
                 key={group.startIndex}
@@ -101,7 +104,7 @@ export function MergeGroupEditor({
           })}
         </div>
       )}
-
+      </div>
     </div>
   );
 }

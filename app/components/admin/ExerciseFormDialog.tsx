@@ -41,7 +41,7 @@ function ProbeError({ id, issue }: { id: string; issue?: ProbeIssue }) {
   return (
     <Alert id={id} variant="destructive" role="alert">
       <AlertCircle />
-      <AlertDescription>{issue.message}</AlertDescription>
+      <AlertDescription className="break-all">{issue.message}</AlertDescription>
     </Alert>
   );
 }
@@ -54,6 +54,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
   const [subtitleUrl, setSubtitleUrl] = useState('');
 
   const [probe, setProbe] = useState<ExerciseProbeResult | null>(null);
+  const [videoFallbackUrl, setVideoFallbackUrl] = useState('');
   const [warningAcknowledged, setWarningAcknowledged] = useState(false);
   const [probing, setProbing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -62,7 +63,6 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
 
   const [activeTab, setActiveTab] = useState('manual');
   const [tedUrl, setTedUrl] = useState('');
-  const [tedUploadToCos, setTedUploadToCos] = useState(true);
   const [tedStatus, setTedStatus] = useState<TedFetchStatus>('idle');
   const [tedError, setTedError] = useState('');
   const tedController = useRef<AbortController | null>(null);
@@ -91,6 +91,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
     invalidateTedFetch();
     setter(value);
     setProbe(null);
+    setVideoFallbackUrl('');
     setWarningAcknowledged(false);
   };
 
@@ -135,7 +136,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
   const fetchTed = async () => {
     if (tedStatus === 'fetching') return;
     setFormError('');
-    const check = AdminExerciseFetchTedSchema.safeParse({ url: tedUrl, uploadToCos: tedUploadToCos });
+    const check = AdminExerciseFetchTedSchema.safeParse({ url: tedUrl });
     if (!check.success) {
       setFieldErrors((prev) => ({ ...prev, ...z.flattenError(check.error).fieldErrors }));
       return;
@@ -152,7 +153,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
     try {
       const res = await adminFetch<TedApiResponse>('/api/admin/exercises/fetch-ted', {
         method: 'POST',
-        body: { url: check.data.url, uploadToCos: check.data.uploadToCos },
+        body: { url: check.data.url },
         signal: controller.signal,
       });
       if (!mounted.current || operation !== tedOperation.current) return;
@@ -162,13 +163,14 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
         setTedStatus('error');
         return;
       }
-      if (!res.data.videoUrl || !res.data.subtitleUrl || !res.data.probe?.ok) {
+      if (!res.data.videoUrl || !res.data.videoFallbackUrl || !res.data.subtitleUrl || !res.data.probe?.ok) {
         setTedError('The server returned incomplete TED media. Please retry.');
         setTedStatus('error');
         return;
       }
 
       setVideoUrl(res.data.videoUrl);
+      setVideoFallbackUrl(res.data.videoFallbackUrl);
       setSubtitleUrl(res.data.subtitleUrl);
       setProbe(res.data.probe);
       setWarningAcknowledged(false);
@@ -192,6 +194,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
       difficulty: difficulty === INHERIT ? null : (difficulty as Difficulty),
       videoUrl,
       subtitleUrl,
+      videoFallbackUrl: videoFallbackUrl || undefined,
     };
     const check = AdminExerciseCreateSchema.safeParse(payload);
     if (!check.success) {
@@ -231,7 +234,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] overflow-y-auto overflow-x-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>New exercise</DialogTitle>
           <DialogDescription>
@@ -342,14 +345,9 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
                 )}
               </FormField>
               <div className="flex items-center gap-2">
-                <Checkbox
-                  id="exercise-ted-upload-to-cos"
-                  checked={tedUploadToCos}
-                  onCheckedChange={(checked) => setTedUploadToCos(checked === true)}
-                  disabled={saving || tedStatus === 'fetching'}
-                />
+                <Checkbox id="exercise-ted-upload-to-cos" checked disabled aria-hidden="true" />
                 <Label htmlFor="exercise-ted-upload-to-cos">
-                  Upload video to COS (uncheck to stream directly from TED)
+                  A backup copy of the video is always uploaded to COS. Playback starts from TED and switches to the COS copy if TED times out.
                 </Label>
               </div>
               <Button type="button" variant="outline" onClick={fetchTed} disabled={tedStatus === 'fetching' || saving || probing}>
@@ -361,9 +359,8 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
                 <Alert aria-live="polite">
                   <AlertTitle>Ready to fetch</AlertTitle>
                   <AlertDescription>
-                    {tedUploadToCos
-                      ? 'The video and its English subtitles will be saved to COS for this draft.'
-                      : 'Only the English subtitles will be saved to COS. The video will stream directly from TED.'}
+                    The video and its English subtitles will be saved to COS. Playback starts from the TED stream and
+                    automatically switches to the COS copy if TED times out.
                   </AlertDescription>
                 </Alert>
               )}
@@ -372,9 +369,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
                   <Loader2 className="animate-spin" aria-hidden="true" />
                   <AlertTitle>Fetching TED media</AlertTitle>
                   <AlertDescription>
-                    {tedUploadToCos
-                      ? 'This can take up to 5 minutes. Keep this dialog open.'
-                      : 'This usually takes a few seconds. Keep this dialog open.'}
+                    This can take up to 5 minutes. Keep this dialog open.
                   </AlertDescription>
                 </Alert>
               )}
@@ -382,7 +377,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
                 <Alert variant="destructive" role="alert">
                   <AlertCircle />
                   <AlertTitle>Could not fetch TED media</AlertTitle>
-                  <AlertDescription>{tedError}</AlertDescription>
+                  <AlertDescription className="break-all">{tedError}</AlertDescription>
                 </Alert>
               )}
               {tedStatus === 'success' && (
@@ -391,6 +386,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
                   <AlertTitle>TED media ready</AlertTitle>
                   <AlertDescription>
                     <span className="block break-all">Video: {videoUrl}</span>
+                    <span className="block break-all">Fallback (COS): {videoFallbackUrl}</span>
                     <span className="block break-all">Subtitle: {subtitleUrl}</span>
                   </AlertDescription>
                 </Alert>
@@ -418,7 +414,7 @@ export function ExerciseFormDialog({ open, onOpenChange, episodes, defaultEpisod
               <AlertTitle>Please check</AlertTitle>
               <AlertDescription>
                 {probe.warnings.map((warning) => (
-                  <span key={warning.code} className="block">
+                  <span key={warning.code} className="block break-all">
                     {warning.message}
                   </span>
                 ))}
