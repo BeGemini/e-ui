@@ -9,7 +9,8 @@ import { WordFeedbackDisplay } from '@/app/components/dictation/WordFeedbackDisp
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { usePracticeProgress } from '@/app/components/layout/PracticeProgress';
-import type { Note, PracticeAttempt, SaveAttemptRequest, WordFeedback } from '@/lib/types';
+import type { Note, PracticeAttempt, SaveAttemptRequest, SubtitleTimeAdjustment, WordFeedback } from '@/lib/types';
+import { formatSubtitleTimestamp, applyLinkedTimeEdit, clearLinkedTimeEdit } from '@/lib/utils';
 
 interface Subtitle {
   index: number;
@@ -18,6 +19,9 @@ interface Subtitle {
   endSeconds: number;
   startTime: string;
   endTime: string;
+  /** Present on effective subtitles; the row's boundaries come from its
+   *  first/last original index, which is where timing overrides live. */
+  originalIndices?: number[];
 }
 
 interface PracticeData {
@@ -33,6 +37,9 @@ interface PracticeData {
     isCompleted: boolean;
     overallAccuracy?: number;
   };
+  userConfig?: {
+    timeAdjustments?: SubtitleTimeAdjustment[] | string | null;
+  } | null;
   notes: Note[];
   attempts: PracticeAttempt[];
 }
@@ -69,6 +76,9 @@ export default function PracticePage() {
   const [isCheckingAccuracy, setIsCheckingAccuracy] = useState(false);
   const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [completionMessage, setCompletionMessage] = useState('');
+  // The user's per-sentence timing overrides (same store the subtitle editor
+  // writes to), so player-side adjustments show up there too.
+  const [timeAdjustments, setTimeAdjustments] = useState<SubtitleTimeAdjustment[]>([]);
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
   // Serializes sentence saves so they reach the server in the order the user acted.
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
@@ -127,6 +137,12 @@ export default function PracticePage() {
         const sentenceIndex = data.data.userProgress?.currentSentenceIndex ?? 0;
         const attemptState = getAttemptState(data.data.attempts ?? [], sentenceIndex);
 
+        const rawAdjustments = data.data.userConfig?.timeAdjustments;
+        const parsedAdjustments = typeof rawAdjustments === 'string'
+          ? JSON.parse(rawAdjustments || '[]')
+          : rawAdjustments;
+        setTimeAdjustments(Array.isArray(parsedAdjustments) ? parsedAdjustments : []);
+
         setPracticeData(data.data);
         setCurrentSentenceIndex(sentenceIndex);
         setUserInput(attemptState.userInput);
@@ -163,6 +179,19 @@ export default function PracticePage() {
   const totalSentences = practiceData?.totalSentences ?? practiceData?.subtitles.length ?? 0;
 
   const currentSubtitle = getCurrentSubtitle();
+
+  // Whether the current sentence's boundaries carry timing overrides (used
+  // to show the reset control in the player's timing panel).
+  const currentOriginals = currentSubtitle?.originalIndices
+    ?? (currentSubtitle ? [currentSubtitle.index] : []);
+  const isSentenceTimeAdjusted =
+    !!currentSubtitle &&
+    currentOriginals.length > 0 &&
+    timeAdjustments.some(
+      (a) =>
+        (a.index === currentOriginals[0] && a.startSeconds !== undefined) ||
+        (a.index === currentOriginals[currentOriginals.length - 1] && a.endSeconds !== undefined)
+    );
 
   // Report progress so the site header can display it.
   useEffect(() => {
@@ -368,6 +397,138 @@ export default function PracticePage() {
     await saveProgress(currentSubtitle.index, 0);
   };
 
+  // Apply a timing override to the current sentence and persist it. The
+  // boundary is shared: setting start also pins the previous sentence's end,
+  // setting end pins the next sentence's start. Stored in the same per-user
+  // config as the subtitle editor, so both stay in sync.
+  const handleAdjustSentenceTime = async (
+    field: 'start' | 'end',
+    seconds: number
+  ) => {
+    if (!practiceData || !currentSubtitle) return;
+
+    const targetFirstOriginal = (currentSubtitle.originalIndices ?? [currentSubtitle.index])[0];
+    const previous = timeAdjustments;
+    const { adjustments: next, updates } = applyLinkedTimeEdit(
+      practiceData.subtitles,
+      targetFirstOriginal,
+      field,
+      seconds,
+      previous
+    );
+
+    // Optimistically update the edited row and its linked neighbor.
+    const prevValues = updates.map((u) => {
+      const row = practiceData.subtitles.find((s) => s.index === u.index);
+      return { ...u, seconds: u.field === 'start' ? row?.startSeconds : row?.endSeconds };
+    });
+    const applyLocalUpdates = (list: typeof updates) => {
+      const byKey = new Map(list.map((u) => [`${u.index}:${u.field}`, u.seconds]));
+      setPracticeData((cur) =>
+        cur
+          ? {
+              ...cur,
+              subtitles: cur.subtitles.map((s) => {
+                const start = byKey.get(`${s.index}:start`);
+                const end = byKey.get(`${s.index}:end`);
+                return start === undefined && end === undefined
+                  ? s
+                  : {
+                      ...s,
+                      ...(start !== undefined
+                        ? { startSeconds: start, startTime: formatSubtitleTimestamp(start) }
+                        : {}),
+                      ...(end !== undefined
+                        ? { endSeconds: end, endTime: formatSubtitleTimestamp(end) }
+                        : {}),
+                    };
+              }),
+            }
+          : cur
+      );
+    };
+    applyLocalUpdates(updates);
+    setTimeAdjustments(next);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/subtitles/${exerciseId}/time-adjustments`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ adjustments: next }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || 'Failed to save timing adjustment');
+      }
+      toast({
+        title: 'Timing updated',
+        description: 'Also reflected in Customize Subtitles.',
+      });
+    } catch (error) {
+      applyLocalUpdates(prevValues.filter((u) => u.seconds !== undefined) as typeof updates);
+      setTimeAdjustments(previous);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to save timing adjustment',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Remove the current sentence's timing overrides together with the shared
+  // boundaries of its neighbors. Displayed boundaries are refetched afterwards.
+  const handleResetSentenceTime = async () => {
+    if (!practiceData || !currentSubtitle) return;
+
+    const targetFirstOriginal = (currentSubtitle.originalIndices ?? [currentSubtitle.index])[0];
+    const previous = timeAdjustments;
+    const next = clearLinkedTimeEdit(
+      practiceData.subtitles,
+      targetFirstOriginal,
+      timeAdjustments
+    );
+
+    setTimeAdjustments(next);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/subtitles/${exerciseId}/time-adjustments`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ adjustments: next }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || 'Failed to reset timing adjustment');
+      }
+
+      const refreshRes = await fetch(`/api/practice/${exerciseId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        setPracticeData((cur) =>
+          cur ? { ...cur, subtitles: refreshData.data.subtitles } : cur
+        );
+      }
+      toast({ title: 'Timing reset', description: 'Back to the subtitle file\'s original timing.' });
+    } catch (error) {
+      setTimeAdjustments(previous);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to reset timing adjustment',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -419,6 +580,9 @@ export default function PracticePage() {
                 onSentenceEnd={handleSentenceEnd}
                 onPreviousSentence={handlePreviousSentence}
                 isPreviousDisabled={isSavingProgress || isCheckingAccuracy}
+                isSentenceTimeAdjusted={isSentenceTimeAdjusted}
+                onAdjustSentenceTime={handleAdjustSentenceTime}
+                onResetSentenceTime={handleResetSentenceTime}
               />
             </div>
 

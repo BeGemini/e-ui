@@ -123,6 +123,8 @@ export interface UserSubtitleConfig {
   exerciseId: string;
   mergedGroups: string; // JSON string in database
   skippedSentences: string; // JSON string in database
+  /** Per-sentence timing overrides (JSON column; mysql2 may return it parsed). */
+  timeAdjustments?: SubtitleTimeAdjustment[] | string | null;
   effectiveSentenceCount?: number | null; // Effective sentence count after merge/skip
   createdDate: Date;
   updatedDate: Date;
@@ -137,6 +139,14 @@ export interface MergeGroup {
   start?: number;
   /** @deprecated Legacy field used during migration */
   end?: number;
+}
+
+/** Exercise-global override of one original subtitle's timing. */
+export interface SubtitleTimeAdjustment {
+  /** Original subtitle index (before merge/skip). */
+  index: number;
+  startSeconds?: number;
+  endSeconds?: number;
 }
 
 // ===== SUBTITLE PARSING =====

@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Wand2, X } from 'lucide-react';
+import { CheckCircle2, X } from 'lucide-react';
 import { SubtitleList } from '@/app/components/subtitle-editor/SubtitleList';
 import { MergeGroupEditor } from '@/app/components/subtitle-editor/MergeGroupEditor';
 import { SkipSentenceEditor } from '@/app/components/subtitle-editor/SkipSentenceEditor';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { applySubtitleConfigWithLock, getLockedOriginalCount, getMergedOriginalIndices } from '@/lib/utils';
-import { ParsedSubtitle, EffectiveSubtitle, MergeGroup } from '@/lib/types';
+import { useSubtitleEditorActions } from '@/app/components/layout/SubtitleEditorActions';
+import { applySubtitleConfig, applySubtitleConfigWithLock, applyLinkedTimeEdit, clearLinkedTimeEdit, getLockedOriginalCount, getMergedOriginalIndices } from '@/lib/utils';
+import { ParsedSubtitle, EffectiveSubtitle, MergeGroup, SubtitleTimeAdjustment } from '@/lib/types';
 
 interface UserProgress {
   currentSentenceIndex: number;
@@ -37,6 +38,12 @@ export default function SubtitleEditorPage() {
   const [mergeGroups, setMergeGroups] = useState<MergeGroup[]>([]);
   const [skippedSentences, setSkippedSentences] = useState<number[]>([]);
   const [autoMergeSummary, setAutoMergeSummary] = useState<string | null>(null);
+  // Per-user timing overrides, same scope as merge/skip config.
+  const [timeAdjustments, setTimeAdjustments] = useState<SubtitleTimeAdjustment[]>([]);
+  // The One-Click Merge button lives in the site header; it invokes the
+  // handler registered here (always the latest render's closure).
+  const { setAutoMerge } = useSubtitleEditorActions();
+  const autoMergeRef = useRef<() => void>(() => {});
 
   // Fetch data on mount
   useEffect(() => {
@@ -125,6 +132,20 @@ export default function SubtitleEditorPage() {
           lockedCount
         );
         setEffectiveSubtitles(effectiveWithLock);
+
+        // The user's timing overrides (per-user, like merge/skip config).
+        try {
+          const adjustmentsRes = await fetch(`/api/subtitles/${exerciseId}/time-adjustments`, { headers });
+          if (adjustmentsRes.ok) {
+            const adjustmentsData = await adjustmentsRes.json();
+            setTimeAdjustments(Array.isArray(adjustmentsData.adjustments) ? adjustmentsData.adjustments : []);
+          }
+        } catch {
+          // Non-critical: the page still works without timing editing.
+        }
+
+        // Data is ready: enable the header's One-Click Merge button.
+        setAutoMerge({ run: () => autoMergeRef.current() });
       } catch (error) {
         console.error('Fetch data error:', error);
         toast({
@@ -140,7 +161,11 @@ export default function SubtitleEditorPage() {
     if (exerciseId) {
       fetchData();
     }
-  }, [exerciseId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exerciseId, setAutoMerge]);
+
+  // Disable the header's One-Click Merge button when leaving the page.
+  useEffect(() => () => setAutoMerge(null), [setAutoMerge]);
 
   const handleSelectForMerge = (index: number, selected: boolean) => {
     setSelectedForMerge((prev) =>
@@ -232,6 +257,10 @@ export default function SubtitleEditorPage() {
   };
 
   const handleAutoMerge = () => {
+    // Invoked from the site header, so the button's former disabled
+    // conditions are guarded here instead.
+    if (isSaving || rawSubtitles.length === 0) return;
+
     const mergedIndices = getMergedOriginalIndices(mergeGroups);
     const newGroups: MergeGroup[] = [];
 
@@ -285,6 +314,11 @@ export default function SubtitleEditorPage() {
     );
   };
 
+  // Keep the header-invoked ref pointing at the latest render's handler.
+  useEffect(() => {
+    autoMergeRef.current = handleAutoMerge;
+  });
+
   const handleDeleteGroup = (startIndex: number) => {
     const nextGroups = mergeGroups.filter((g) => g.startIndex !== startIndex);
     setMergeGroups(nextGroups);
@@ -322,6 +356,91 @@ export default function SubtitleEditorPage() {
     });
     setMergeGroups(nextGroups);
     recomputeEffectiveSubtitles(nextGroups, skippedSentences);
+  };
+
+  // Timing adjustments save immediately (they are per-user, but stored
+  // separately from the batch-saved merge/skip config). After a successful
+  // save the raw subtitles are refetched so displayed times reflect the override.
+  const saveTimeAdjustments = async (next: SubtitleTimeAdjustment[], previous: SubtitleTimeAdjustment[]) => {
+    setTimeAdjustments(next);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      const response = await fetch(`/api/subtitles/${exerciseId}/time-adjustments`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ adjustments: next }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || 'Failed to save timing adjustment');
+      }
+
+      const practiceRes = await fetch(`/api/practice/${exerciseId}?raw=true`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (practiceRes.ok) {
+        const practiceData = await practiceRes.json();
+        const subs: ParsedSubtitle[] = practiceData.data?.subtitles || [];
+        setRawSubtitles(subs);
+        setEffectiveSubtitles(
+          applySubtitleConfigWithLock(subs, { mergedGroups: mergeGroups, skippedSentences }, lockedOriginalCount)
+        );
+      }
+
+      toast({
+        title: 'Timing updated',
+        description: 'The adjustment applies to your next playback.',
+      });
+    } catch (error) {
+      setTimeAdjustments(previous);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to save timing adjustment',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // A row's displayed start comes from its first original sentence, its end
+  // from the last one; adjusting a merged row edits those two originals.
+  // Boundaries are shared: setting a row's start also pins the previous
+  // played row's end (and vice versa), so neighbor lookup runs on the
+  // skip-omitted list to match what practice actually plays.
+  const getServedRows = () =>
+    applySubtitleConfig(
+      rawSubtitles,
+      { mergedGroups: mergeGroups, skippedSentences },
+      { omitSkipped: true }
+    );
+
+  const handleAdjustTime = (effectiveIndex: number, field: 'start' | 'end', seconds: number) => {
+    const row = effectiveSubtitles.find((s) => s.index === effectiveIndex);
+    if (!row) return;
+
+    const { adjustments: next } = applyLinkedTimeEdit(
+      getServedRows(),
+      row.originalIndices[0],
+      field,
+      seconds,
+      timeAdjustments
+    );
+    saveTimeAdjustments(next, timeAdjustments);
+  };
+
+  // Clear the row's timing overrides together with the shared boundaries of
+  // its played neighbors.
+  const handleResetTimeAdjustment = (effectiveIndex: number) => {
+    const row = effectiveSubtitles.find((s) => s.index === effectiveIndex);
+    if (!row) return;
+
+    const next = clearLinkedTimeEdit(getServedRows(), row.originalIndices[0], timeAdjustments);
+    saveTimeAdjustments(next, timeAdjustments);
   };
 
   const handleSaveConfig = async () => {
@@ -430,35 +549,26 @@ export default function SubtitleEditorPage() {
     );
   }
 
+  // Practice progress indexes the skip-omitted list, while the editor shows
+  // skipped rows too; map through original indices to find the row the user
+  // is currently practicing so the list can scroll to and highlight it.
+  const servedSubtitles = applySubtitleConfig(
+    rawSubtitles,
+    { mergedGroups: mergeGroups, skippedSentences },
+    { omitSkipped: true }
+  );
+  const currentOriginalIndex =
+    userProgress.currentSentenceIndex < servedSubtitles.length
+      ? servedSubtitles[userProgress.currentSentenceIndex].originalIndices[0]
+      : null;
+
   return (
     <div className="flex-1 bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Customize Subtitles</h1>
-            <p className="text-gray-600 mt-1">Merge sentences or skip them during practice</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleAutoMerge}
-              disabled={isSaving || rawSubtitles.length === 0}
-              title="Automatically merge consecutive sentences that have no ending punctuation (, . ? ! ; :)"
-            >
-              <Wand2 className="mr-2 h-4 w-4" />
-              One-Click Merge
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Back"
-              title="Back"
-              onClick={() => router.back()}
-            >
-              <ArrowLeft />
-            </Button>
-          </div>
+        {/* Header (actions live in the site header) */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Customize Subtitles</h1>
+          <p className="text-gray-600 mt-1">Merge sentences or skip them during practice</p>
         </div>
 
         {/* Info Banner */}
@@ -491,6 +601,7 @@ export default function SubtitleEditorPage() {
         <SubtitleList
           subtitles={effectiveSubtitles}
           currentProgress={userProgress.currentSentenceIndex}
+          currentOriginalIndex={currentOriginalIndex}
           selectedForMerge={selectedForMerge}
           skippedSentences={skippedSentences}
           onSelectForMerge={handleSelectForMerge}
@@ -498,6 +609,9 @@ export default function SubtitleEditorPage() {
           onSelectAll={handleSelectAll}
           onUnmerge={handleUnmerge}
           onUpdateMergedText={handleUpdateMergedText}
+          timeAdjustments={timeAdjustments}
+          onAdjustTime={handleAdjustTime}
+          onResetTimeAdjustment={handleResetTimeAdjustment}
         />
 
         {/* Merge Group Editor */}

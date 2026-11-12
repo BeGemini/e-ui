@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpen, Captions, History, NotebookText, Play } from 'lucide-react';
+import { ArrowLeft, BookOpen, Captions, History, NotebookText, Play, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import UserMenu, { type UserMenuUser } from '@/app/components/user/UserMenu';
 import { usePracticeProgress } from '@/app/components/layout/PracticeProgress';
+import { useSubtitleEditorActions } from '@/app/components/layout/SubtitleEditorActions';
 
 export default function SiteHeader() {
   const pathname = usePathname();
@@ -15,7 +16,10 @@ export default function SiteHeader() {
   const practiceExerciseId = practiceMatch?.[1] ?? null;
   const detailMatch = pathname.match(/^\/dashboard\/([^/]+)\/?$/);
   const detailExerciseId = detailMatch?.[1] ?? null;
+  const subtitlesMatch = pathname.match(/^\/dashboard\/([^/]+)\/subtitles\/?$/);
+  const subtitlesExerciseId = subtitlesMatch?.[1] ?? null;
   const { progress } = usePracticeProgress();
+  const { autoMerge } = useSubtitleEditorActions();
 
   const [user, setUser] = useState<UserMenuUser | null>(null);
   const [exerciseTitle, setExerciseTitle] = useState('');
@@ -133,7 +137,29 @@ export default function SiteHeader() {
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {practiceExerciseId ? (
+            {subtitlesExerciseId ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="One-Click Merge"
+                  title="Automatically merge consecutive sentences that have no ending punctuation (, . ? ! ; :)"
+                  onClick={() => autoMerge?.run()}
+                  disabled={!autoMerge}
+                >
+                  <Wand2 />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Back"
+                  title="Back"
+                  onClick={() => router.back()}
+                >
+                  <ArrowLeft />
+                </Button>
+              </>
+            ) : practiceExerciseId ? (
               <>
                 <Button
                   variant="ghost"

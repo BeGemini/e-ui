@@ -1,5 +1,13 @@
 import { describe, it, expect } from '@jest/globals';
-import { applySubtitleConfig, SubtitleConfigInput } from '@/lib/utils';
+import {
+  applySubtitleConfig,
+  applyTimeAdjustments,
+  applyLinkedTimeEdit,
+  clearLinkedTimeEdit,
+  formatSubtitleTimestamp,
+  parseSubtitleTimestamp,
+  SubtitleConfigInput,
+} from '@/lib/utils';
 import { ParsedSubtitle } from '@/lib/types';
 
 function makeSubtitles(count: number): ParsedSubtitle[] {
@@ -150,5 +158,168 @@ describe('applySubtitleConfig', () => {
     expect(result[0].text).toBe('Sentence 1 Sentence 2 Sentence 3');
     expect(result[1].text).toBe('Sentence 4');
     expect(result[2].text).toBe('Sentence 5');
+  });
+});
+
+describe('applyTimeAdjustments', () => {
+  it('should return subtitles unchanged when adjustments are empty or missing', () => {
+    const raw = makeSubtitles(3);
+
+    expect(applyTimeAdjustments(raw, [])).toEqual(raw);
+    expect(applyTimeAdjustments(raw, null)).toEqual(raw);
+    expect(applyTimeAdjustments(raw, undefined)).toEqual(raw);
+  });
+
+  it('should override start and end for the targeted original index only', () => {
+    const raw = makeSubtitles(4);
+    const result = applyTimeAdjustments(raw, [
+      { index: 1, startSeconds: 5.5, endSeconds: 8.75 },
+    ]);
+
+    expect(result).toHaveLength(4);
+    expect(result[0].startSeconds).toBe(0);
+    expect(result[1].startSeconds).toBe(5.5);
+    expect(result[1].endSeconds).toBe(8.75);
+    expect(result[1].startTime).toBe('00:00:05.500');
+    expect(result[1].endTime).toBe('00:00:08.750');
+    expect(result[2].startSeconds).toBe(10);
+  });
+
+  it('should support overriding only one boundary', () => {
+    const raw = makeSubtitles(3);
+    const result = applyTimeAdjustments(raw, [{ index: 2, endSeconds: 15.25 }]);
+
+    expect(result[2].startSeconds).toBe(10);
+    expect(result[2].endSeconds).toBe(15.25);
+  });
+
+  it('should not change sentence count or order, composing with merge/skip config', () => {
+    const raw = makeSubtitles(5);
+    const adjusted = applyTimeAdjustments(raw, [
+      { index: 2, startSeconds: 10.4 },
+      { index: 4, endSeconds: 25.1 },
+    ]);
+
+    const result = applySubtitleConfig(adjusted, {
+      mergedGroups: [{ startIndex: 2, endIndex: 4 }],
+      skippedSentences: [],
+    });
+
+    // Merged row inherits adjusted boundaries: first start and last end.
+    expect(result).toHaveLength(3);
+    expect(result[2].startSeconds).toBe(10.4);
+    expect(result[2].endSeconds).toBe(25.1);
+  });
+});
+
+describe('formatSubtitleTimestamp', () => {
+  it('should format seconds as HH:MM:SS.mmm', () => {
+    expect(formatSubtitleTimestamp(0)).toBe('00:00:00.000');
+    expect(formatSubtitleTimestamp(141.172)).toBe('00:02:21.172');
+    expect(formatSubtitleTimestamp(3661.5)).toBe('01:01:01.500');
+  });
+
+  it('should clamp negative values to zero', () => {
+    expect(formatSubtitleTimestamp(-1)).toBe('00:00:00.000');
+  });
+});
+
+describe('parseSubtitleTimestamp', () => {
+  it('should parse dot and comma millisecond separators', () => {
+    expect(parseSubtitleTimestamp('00:02:21.172')).toBeCloseTo(141.172, 3);
+    expect(parseSubtitleTimestamp('00:02:21,172')).toBeCloseTo(141.172, 3);
+    expect(parseSubtitleTimestamp('1:01:01.5')).toBeCloseTo(3661.5, 3);
+  });
+
+  it('should reject invalid input', () => {
+    expect(parseSubtitleTimestamp('')).toBeNull();
+    expect(parseSubtitleTimestamp('abc')).toBeNull();
+    expect(parseSubtitleTimestamp('00:61:00.000')).toBeNull();
+    expect(parseSubtitleTimestamp('00:00:61.000')).toBeNull();
+    expect(parseSubtitleTimestamp('00:00:00')).toBeNull();
+  });
+});
+
+describe('applyLinkedTimeEdit', () => {
+  // Row 1 is a merged row spanning originals 1–2.
+  const rows = [
+    { index: 0, originalIndices: [0] },
+    { index: 1, originalIndices: [1, 2] },
+    { index: 2, originalIndices: [3] },
+  ];
+
+  it('pins the previous row’s end when setting a start', () => {
+    const { adjustments, updates } = applyLinkedTimeEdit(rows, 3, 'start', 10.5, []);
+
+    // Target row (original 3) start + previous row’s end (original 2).
+    expect(adjustments).toEqual([
+      { index: 2, endSeconds: 10.5 },
+      { index: 3, startSeconds: 10.5 },
+    ]);
+    expect(updates).toEqual([
+      { index: 2, field: 'start', seconds: 10.5 },
+      { index: 1, field: 'end', seconds: 10.5 },
+    ]);
+  });
+
+  it('pins the next row’s start when setting an end', () => {
+    const { adjustments, updates } = applyLinkedTimeEdit(rows, 0, 'end', 20.25, []);
+
+    // Target row (original 0) end + next row’s start (original 1).
+    expect(adjustments).toEqual([
+      { index: 0, endSeconds: 20.25 },
+      { index: 1, startSeconds: 20.25 },
+    ]);
+    expect(updates).toEqual([
+      { index: 0, field: 'end', seconds: 20.25 },
+      { index: 1, field: 'start', seconds: 20.25 },
+    ]);
+  });
+
+  it('does not link beyond the first or last row', () => {
+    const first = applyLinkedTimeEdit(rows, 0, 'start', 1, []);
+    expect(first.adjustments).toEqual([{ index: 0, startSeconds: 1 }]);
+    expect(first.updates).toEqual([{ index: 0, field: 'start', seconds: 1 }]);
+
+    const last = applyLinkedTimeEdit(rows, 3, 'end', 30, []);
+    expect(last.adjustments).toEqual([{ index: 3, endSeconds: 30 }]);
+  });
+
+  it('upserts over existing adjustments for the same original', () => {
+    const existing = [{ index: 2, endSeconds: 8 }];
+    const { adjustments } = applyLinkedTimeEdit(rows, 3, 'start', 10, existing);
+
+    expect(adjustments).toEqual([
+      { index: 2, endSeconds: 10 },
+      { index: 3, startSeconds: 10 },
+    ]);
+  });
+});
+
+describe('clearLinkedTimeEdit', () => {
+  const rows = [
+    { index: 0, originalIndices: [0] },
+    { index: 1, originalIndices: [1, 2] },
+    { index: 2, originalIndices: [3] },
+  ];
+
+  it('clears the row’s overrides plus the shared neighbor boundaries', () => {
+    const current = [
+      { index: 0, endSeconds: 10 },
+      { index: 1, endSeconds: 10 },
+      { index: 2, startSeconds: 10, endSeconds: 20 },
+      { index: 3, startSeconds: 20 },
+      { index: 7, startSeconds: 99 },
+    ];
+    const result = clearLinkedTimeEdit(rows, 1, current);
+
+    // Target row (originals 1 and 2), previous row's end (original 0),
+    // next row's start (original 3) are cleared; unrelated entries survive.
+    expect(result).toEqual([{ index: 7, startSeconds: 99 }]);
+  });
+
+  it('returns the list unchanged when the row is not found', () => {
+    const current = [{ index: 5, startSeconds: 1 }];
+    expect(clearLinkedTimeEdit(rows, 42, current)).toEqual(current);
   });
 });

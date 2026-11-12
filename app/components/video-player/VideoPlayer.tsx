@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 import Hls from 'hls.js';
-import { Play, Pause, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
+import { Play, Pause, RotateCcw, SkipBack, SkipForward, Timer, Undo2, Captions } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -45,6 +45,11 @@ interface VideoPlayerProps {
   onPreviousSentence?: () => void;
   /** Extra lock from the parent (e.g. save/check in flight). Defaults to false. */
   isPreviousDisabled?: boolean;
+  /** Whether the current sentence carries timing overrides (shows the reset control). */
+  isSentenceTimeAdjusted?: boolean;
+  /** Persist a boundary override for the current sentence (saves on the parent side). */
+  onAdjustSentenceTime?: (field: 'start' | 'end', seconds: number) => void;
+  onResetSentenceTime?: () => void;
 }
 
 export interface VideoPlayerRef {
@@ -62,6 +67,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
   onTimeUpdate,
   onPreviousSentence,
   isPreviousDisabled = false,
+  isSentenceTimeAdjusted = false,
+  onAdjustSentenceTime,
+  onResetSentenceTime,
 }: VideoPlayerProps, ref) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pendingSeekRef = useRef<number | null>(null);
@@ -83,6 +91,10 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
   const loadWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [playbackRate, setPlaybackRate] = useState<PlaybackRate>(DEFAULT_PLAYBACK_RATE);
+  const [showTimingTools, setShowTimingTools] = useState(false);
+  // On-video subtitle overlay. Off by default: this is a dictation exercise
+  // and the current sentence is the answer.
+  const [showSubtitles, setShowSubtitles] = useState(false);
 
   // Set defaultPlaybackRate too, since the media load algorithm resets
   // playbackRate to it when the source changes.
@@ -314,12 +326,15 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
     }
   }, [isReady, applyPendingSeek]);
 
-  const stopAtSegmentEnd = useCallback(() => {
+  const stopAtSegmentEnd = useCallback((projectedTime?: number) => {
     const video = videoRef.current;
     const segment = segmentRef.current;
     // Ignore mid-seek positions: they may still report the pre-seek time.
     if (!video || !segment || video.paused || video.seeking) return;
-    if (video.currentTime < segment.endSeconds) return;
+    // `projectedTime` lets the rAF loop pass the position the *next* frame
+    // would reach, so playback stops at the boundary instead of past it.
+    const time = projectedTime ?? video.currentTime;
+    if (time < segment.endSeconds) return;
 
     segmentRef.current = null;
     video.pause();
@@ -335,13 +350,23 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
 
   // `timeupdate` fires only every ~250ms, so poll every frame while playing
   // to stop close to the sentence end and keep the millisecond readout live.
+  // The stop check uses the position the *next* frame would reach, so a
+  // sentence never audibly overshoots into the next one.
   useEffect(() => {
     if (!isPlaying) return;
     let frameId = 0;
-    const tick = () => {
+    let lastTimestamp: number | null = null;
+    const tick = (timestamp: number) => {
       const video = videoRef.current;
-      if (video) setCurrentTime(video.currentTime);
-      stopAtSegmentEnd();
+      if (!video) {
+        frameId = requestAnimationFrame(tick);
+        return;
+      }
+      setCurrentTime(video.currentTime);
+      const frameDelta = lastTimestamp !== null ? timestamp - lastTimestamp : 1000 / 60;
+      lastTimestamp = timestamp;
+      const projected = video.currentTime + (frameDelta / 1000) * video.playbackRate;
+      stopAtSegmentEnd(projected);
       frameId = requestAnimationFrame(tick);
     };
     frameId = requestAnimationFrame(tick);
@@ -457,6 +482,42 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
     return `${base}.${ms.toString().padStart(3, '0')}`;
   };
 
+  // One boundary row of the timing panel: nudge by 50ms or snap to the playhead.
+  const renderTimingRow = (field: 'start' | 'end', seconds: number) => (
+    <div className="flex items-center gap-2">
+      <span className="w-9 shrink-0 text-gray-500">{field === 'start' ? 'Start' : 'End'}</span>
+      <span className="tabular-nums text-gray-200">{formatTime(seconds, true)}</span>
+      <div className="ml-auto flex items-center gap-1">
+        <button
+          type="button"
+          className="rounded px-1.5 py-0.5 text-gray-300 hover:bg-gray-700 hover:text-white"
+          title="Shift this boundary 50ms earlier"
+          onClick={() => onAdjustSentenceTime?.(field, Math.max(0, seconds - 0.05))}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          className="rounded px-1.5 py-0.5 text-gray-300 hover:bg-gray-700 hover:text-white"
+          title="Shift this boundary 50ms later"
+          onClick={() => onAdjustSentenceTime?.(field, seconds + 0.05)}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          className="rounded px-1.5 py-0.5 text-[11px] text-gray-300 hover:bg-gray-700 hover:text-white"
+          title={`Set ${field} to the current playback position`}
+          onClick={() =>
+            onAdjustSentenceTime?.(field, videoRef.current?.currentTime ?? seconds)
+          }
+        >
+          Mark
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="w-full rounded-lg border border-gray-200 bg-black p-4">
       <div className="flex gap-4">
@@ -512,6 +573,13 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
                 视频加载超时，已切换播放源
               </div>
             )}
+
+            {/* Current-sentence overlay, toggled from the right control column. */}
+            {showSubtitles && currentSubtitle && (
+              <div className="absolute bottom-3 left-1/2 w-fit max-w-[92%] -translate-x-1/2 rounded-md bg-black/70 px-3 py-1.5 text-center text-sm leading-relaxed text-white">
+                {currentSubtitle.text}
+              </div>
+            )}
           </div>
 
           {/* Progress Bar */}
@@ -533,10 +601,49 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
               <span>
                 Sentence {currentSubtitle.index + 1} / {totalSentences}
               </span>
-              <span className="text-xs text-gray-500 tabular-nums">
-                {formatTime(currentSubtitle.startSeconds, true)} – {formatTime(currentSubtitle.endSeconds, true)}
-                {' '}({(currentSubtitle.endSeconds - currentSubtitle.startSeconds).toFixed(3)}s)
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 tabular-nums">
+                  {formatTime(currentSubtitle.startSeconds, true)} – {formatTime(currentSubtitle.endSeconds, true)}
+                  {' '}({(currentSubtitle.endSeconds - currentSubtitle.startSeconds).toFixed(3)}s)
+                </span>
+                {onAdjustSentenceTime && (
+                  <button
+                    type="button"
+                    aria-label="Adjust timing"
+                    title="Adjust this sentence's timing"
+                    onClick={() => setShowTimingTools((v) => !v)}
+                    className={`rounded p-0.5 ${
+                      showTimingTools
+                        ? 'bg-gray-700 text-blue-400'
+                        : 'text-gray-500 hover:text-white'
+                    }`}
+                  >
+                    <Timer size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Timing panel: adjust the current sentence's boundaries and save
+              them into the same per-user store as Customize Subtitles. */}
+          {showTimingTools && currentSubtitle && onAdjustSentenceTime && (
+            <div className="space-y-1.5 rounded bg-gray-800 px-3 py-2 text-xs text-gray-300">
+              {renderTimingRow('start', currentSubtitle.startSeconds)}
+              {renderTimingRow('end', currentSubtitle.endSeconds)}
+              {isSentenceTimeAdjusted && onResetSentenceTime && (
+                <div className="flex justify-end border-t border-gray-700 pt-1.5">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-amber-400 hover:bg-gray-700 hover:text-amber-300"
+                    title="Reset to the subtitle file's original timing"
+                    onClick={onResetSentenceTime}
+                  >
+                    <Undo2 size={12} />
+                    Reset
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -582,6 +689,18 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
             title="Skip & Continue"
           >
             <SkipForward size={16} />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowSubtitles((v) => !v)}
+            className={`w-9 px-0 bg-transparent border-0 rounded hover:bg-gray-700 ${
+              showSubtitles ? 'text-blue-400 hover:text-blue-300' : 'text-gray-300 hover:text-white'
+            }`}
+            aria-label={showSubtitles ? 'Hide subtitles' : 'Show subtitles'}
+            title={showSubtitles ? 'Hide subtitles' : 'Show subtitles'}
+          >
+            <Captions size={16} />
           </Button>
           <Select
             items={PLAYBACK_RATE_ITEMS}

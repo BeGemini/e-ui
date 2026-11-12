@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { RowDataPacket } from 'mysql2/promise';
 import { verifySessionFromRequest } from '@/lib/session';
 import { initializeDatabase, query, queryOne, execute } from '@/lib/db';
-import { Exercise, UserSubtitleConfig, ParsedSubtitle, EffectiveSubtitle, UserExerciseProgress, Note, PracticeAttempt } from '@/lib/types';
+import { Exercise, UserSubtitleConfig, ParsedSubtitle, EffectiveSubtitle, UserExerciseProgress, Note, PracticeAttempt, SubtitleTimeAdjustment } from '@/lib/types';
 import { downloadFile } from '@/lib/cos-client';
 import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
-import { applySubtitleConfig, isExternalVideoUrl, SubtitleConfigInput } from '@/lib/utils';
+import { applySubtitleConfig, applyTimeAdjustments, isExternalVideoUrl, SubtitleConfigInput } from '@/lib/utils';
+
+function parseTimeAdjustments(value: unknown): SubtitleTimeAdjustment[] {
+  const parsed = typeof value === 'string' ? JSON.parse(value || '[]') : value;
+  return Array.isArray(parsed) ? (parsed as SubtitleTimeAdjustment[]) : [];
+}
 import { listPracticeAttempts } from '@/lib/dictation-attempts';
 
 interface ExerciseWithSubtitles extends Exercise {
@@ -92,6 +97,13 @@ export async function GET(
       'SELECT * FROM UserSubtitleConfig WHERE userId = ? AND exerciseId = ?',
       [session.userId, exerciseId]
     );
+
+    // Apply the user's timing overrides before any merge/skip processing so
+    // merged rows inherit adjusted boundaries. Applies in raw mode too: the
+    // subtitle editor (same user) should see the adjusted timestamps.
+    if (subtitles.length > 0) {
+      subtitles = applyTimeAdjustments(subtitles, parseTimeAdjustments(userConfig?.timeAdjustments));
+    }
 
     // Fetch user's exercise progress
     const userProgress = await queryOne<UserExerciseProgress>(
