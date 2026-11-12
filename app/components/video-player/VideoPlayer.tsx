@@ -334,11 +334,13 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
   }, [onSentenceEnd]);
 
   // `timeupdate` fires only every ~250ms, so poll every frame while playing
-  // to stop close to the sentence end.
+  // to stop close to the sentence end and keep the millisecond readout live.
   useEffect(() => {
     if (!isPlaying) return;
     let frameId = 0;
     const tick = () => {
+      const video = videoRef.current;
+      if (video) setCurrentTime(video.currentTime);
       stopAtSegmentEnd();
       frameId = requestAnimationFrame(tick);
     };
@@ -446,10 +448,13 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
     setCurrentTime(time);
   };
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (seconds: number, showMs = false) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    const base = `${mins}:${secs.toString().padStart(2, '0')}`;
+    if (!showMs) return base;
+    const ms = Math.floor((seconds % 1) * 1000);
+    return `${base}.${ms.toString().padStart(3, '0')}`;
   };
 
   return (
@@ -511,11 +516,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
 
           {/* Progress Bar */}
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-300">{formatTime(currentTime)}</span>
+            <span className="text-sm text-gray-300 tabular-nums">{formatTime(currentTime, true)}</span>
             <Slider
               value={[currentTime]}
               max={Math.max(duration, currentTime, 1)}
-              step={0.1}
+              step={0.01}
               onValueChange={handleSliderChange}
               className="flex-1"
             />
@@ -528,8 +533,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
               <span>
                 Sentence {currentSubtitle.index + 1} / {totalSentences}
               </span>
-              <span className="text-xs text-gray-500">
-                Duration: {(currentSubtitle.endSeconds - currentSubtitle.startSeconds).toFixed(1)}s
+              <span className="text-xs text-gray-500 tabular-nums">
+                {formatTime(currentSubtitle.startSeconds, true)} – {formatTime(currentSubtitle.endSeconds, true)}
+                {' '}({(currentSubtitle.endSeconds - currentSubtitle.startSeconds).toFixed(3)}s)
               </span>
             </div>
           )}
