@@ -5,7 +5,7 @@ import { initializeDatabase, query, queryOne, execute } from '@/lib/db';
 import { Exercise, UserSubtitleConfig, ParsedSubtitle, EffectiveSubtitle, UserExerciseProgress, Note, PracticeAttempt, SubtitleTimeAdjustment } from '@/lib/types';
 import { downloadFile } from '@/lib/cos-client';
 import { parseSubtitles, detectSubtitleFormat } from '@/lib/subtitle-parser';
-import { applySubtitleConfig, applyTimeAdjustments, isExternalVideoUrl, SubtitleConfigInput } from '@/lib/utils';
+import { applySubtitleConfig, applyTimeAdjustments, applyGlobalTimeOffset, isExternalVideoUrl, SubtitleConfigInput } from '@/lib/utils';
 
 function parseTimeAdjustments(value: unknown): SubtitleTimeAdjustment[] {
   const parsed = typeof value === 'string' ? JSON.parse(value || '[]') : value;
@@ -98,11 +98,16 @@ export async function GET(
       [session.userId, exerciseId]
     );
 
-    // Apply the user's timing overrides before any merge/skip processing so
-    // merged rows inherit adjusted boundaries. Applies in raw mode too: the
-    // subtitle editor (same user) should see the adjusted timestamps.
+    // Apply the user's timing mode before any merge/skip processing so merged
+    // rows inherit adjusted boundaries: per-sentence overrides OR the global
+    // offset (never both; the inactive one stays stored). Applies in raw mode
+    // too: the subtitle editor (same user) should see the served timestamps.
     if (subtitles.length > 0) {
-      subtitles = applyTimeAdjustments(subtitles, parseTimeAdjustments(userConfig?.timeAdjustments));
+      if (userConfig?.timingMode === 'global') {
+        subtitles = applyGlobalTimeOffset(subtitles, userConfig.globalTimeOffsetMs ?? 0);
+      } else {
+        subtitles = applyTimeAdjustments(subtitles, parseTimeAdjustments(userConfig?.timeAdjustments));
+      }
     }
 
     // Fetch user's exercise progress

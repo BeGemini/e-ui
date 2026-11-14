@@ -125,6 +125,10 @@ export interface UserSubtitleConfig {
   skippedSentences: string; // JSON string in database
   /** Per-sentence timing overrides (JSON column; mysql2 may return it parsed). */
   timeAdjustments?: SubtitleTimeAdjustment[] | string | null;
+  /** Whole-video offset in milliseconds; negative shifts subtitles earlier. */
+  globalTimeOffsetMs?: number;
+  /** Which timing adjustment applies; the other stays stored but inactive. */
+  timingMode?: 'sentence' | 'global';
   effectiveSentenceCount?: number | null; // Effective sentence count after merge/skip
   createdDate: Date;
   updatedDate: Date;

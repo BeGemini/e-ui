@@ -39,6 +39,8 @@ interface PracticeData {
   };
   userConfig?: {
     timeAdjustments?: SubtitleTimeAdjustment[] | string | null;
+    globalTimeOffsetMs?: number;
+    timingMode?: 'sentence' | 'global';
   } | null;
   notes: Note[];
   attempts: PracticeAttempt[];
@@ -79,6 +81,10 @@ export default function PracticePage() {
   // The user's per-sentence timing overrides (same store the subtitle editor
   // writes to), so player-side adjustments show up there too.
   const [timeAdjustments, setTimeAdjustments] = useState<SubtitleTimeAdjustment[]>([]);
+  // Whole-video timing controls, independent of per-sentence overrides; only
+  // one mode is applied server-side at a time.
+  const [timingMode, setTimingMode] = useState<'sentence' | 'global'>('sentence');
+  const [globalOffsetMs, setGlobalOffsetMs] = useState(0);
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
   // Serializes sentence saves so they reach the server in the order the user acted.
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
@@ -142,6 +148,12 @@ export default function PracticePage() {
           ? JSON.parse(rawAdjustments || '[]')
           : rawAdjustments;
         setTimeAdjustments(Array.isArray(parsedAdjustments) ? parsedAdjustments : []);
+        setTimingMode(data.data.userConfig?.timingMode === 'global' ? 'global' : 'sentence');
+        setGlobalOffsetMs(
+          typeof data.data.userConfig?.globalTimeOffsetMs === 'number'
+            ? data.data.userConfig.globalTimeOffsetMs
+            : 0
+        );
 
         setPracticeData(data.data);
         setCurrentSentenceIndex(sentenceIndex);
@@ -529,6 +541,104 @@ export default function PracticePage() {
     }
   };
 
+  // Switch between per-sentence overrides and the whole-video offset. The
+  // served times change entirely, so subtitles are refetched after saving.
+  const handleSetTimingMode = async (mode: 'sentence' | 'global') => {
+    if (!practiceData || mode === timingMode) return;
+
+    const previous = timingMode;
+    setTimingMode(mode);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/subtitles/${exerciseId}/time-adjustments`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ timingMode: mode }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || 'Failed to switch timing mode');
+      }
+
+      const refreshRes = await fetch(`/api/practice/${exerciseId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        setPracticeData((cur) =>
+          cur ? { ...cur, subtitles: refreshData.data.subtitles } : cur
+        );
+      }
+    } catch (error) {
+      setTimingMode(previous);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to switch timing mode',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Set the whole-video offset (ms). The optimistic update shifts every
+  // displayed time by the delta; negative values clamp at 0 like the server.
+  const handleSetGlobalOffset = async (offsetMs: number) => {
+    if (!practiceData || timingMode !== 'global') return;
+
+    const previousOffset = globalOffsetMs;
+    if (offsetMs === previousOffset) return;
+
+    const shiftBy = (deltaSeconds: number) => {
+      setPracticeData((cur) =>
+        cur
+          ? {
+              ...cur,
+              subtitles: cur.subtitles.map((s) => {
+                const startSeconds = Math.max(0, s.startSeconds + deltaSeconds);
+                const endSeconds = Math.max(0, s.endSeconds + deltaSeconds);
+                return {
+                  ...s,
+                  startSeconds,
+                  endSeconds,
+                  startTime: formatSubtitleTimestamp(startSeconds),
+                  endTime: formatSubtitleTimestamp(endSeconds),
+                };
+              }),
+            }
+          : cur
+      );
+    };
+
+    setGlobalOffsetMs(offsetMs);
+    shiftBy((offsetMs - previousOffset) / 1000);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/subtitles/${exerciseId}/time-adjustments`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ globalTimeOffsetMs: offsetMs }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || 'Failed to save timing offset');
+      }
+    } catch (error) {
+      shiftBy((previousOffset - offsetMs) / 1000);
+      setGlobalOffsetMs(previousOffset);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to save timing offset',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -583,6 +693,10 @@ export default function PracticePage() {
                 isSentenceTimeAdjusted={isSentenceTimeAdjusted}
                 onAdjustSentenceTime={handleAdjustSentenceTime}
                 onResetSentenceTime={handleResetSentenceTime}
+                timingMode={timingMode}
+                globalOffsetMs={globalOffsetMs}
+                onSetTimingMode={handleSetTimingMode}
+                onSetGlobalOffset={handleSetGlobalOffset}
               />
             </div>
 

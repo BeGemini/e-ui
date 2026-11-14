@@ -71,6 +71,33 @@ export function applyTimeAdjustments(
 }
 
 /**
+ * Shift every sentence's start/end by the same offset (whole-video
+ * calibration). Mutually exclusive with per-sentence overrides: the caller
+ * applies one or the other based on the user's timing mode. Negative offsets
+ * are clamped at 0 for the leading sentences.
+ */
+export function applyGlobalTimeOffset(
+  rawSubtitles: ParsedSubtitle[],
+  offsetMs: number
+): ParsedSubtitle[] {
+  if (!offsetMs) {
+    return rawSubtitles;
+  }
+  const offsetSeconds = offsetMs / 1000;
+  return rawSubtitles.map((sub) => {
+    const startSeconds = Math.max(0, sub.startSeconds + offsetSeconds);
+    const endSeconds = Math.max(0, sub.endSeconds + offsetSeconds);
+    return {
+      ...sub,
+      startSeconds,
+      endSeconds,
+      startTime: formatSubtitleTimestamp(startSeconds),
+      endTime: formatSubtitleTimestamp(endSeconds),
+    };
+  });
+}
+
+/**
  * Linked-boundary timing edit: setting a row's start also pins the previous
  * played row's end to the same time (and symmetrically for end → next row's
  * start), so adjacent sentences never leave a gap or overlap.

@@ -33,9 +33,12 @@ function readAdjustments(config: UserSubtitleConfig | null): SubtitleTimeAdjustm
   }
 }
 
+const TIMING_MODES = ['sentence', 'global'] as const;
+type TimingMode = (typeof TIMING_MODES)[number];
+
 /**
  * GET /api/subtitles/[exerciseId]/time-adjustments
- * Return the current user's timing overrides for this exercise.
+ * Return the current user's timing settings for this exercise.
  */
 export async function GET(
   request: NextRequest,
@@ -55,7 +58,7 @@ export async function GET(
     const { exerciseId } = await params;
 
     const config = await queryOne<UserSubtitleConfig>(
-      'SELECT timeAdjustments FROM UserSubtitleConfig WHERE userId = ? AND exerciseId = ?',
+      'SELECT timeAdjustments, globalTimeOffsetMs, timingMode FROM UserSubtitleConfig WHERE userId = ? AND exerciseId = ?',
       [session.userId, exerciseId]
     );
 
@@ -63,6 +66,8 @@ export async function GET(
       {
         success: true,
         adjustments: readAdjustments(config ?? null),
+        globalTimeOffsetMs: config?.globalTimeOffsetMs ?? 0,
+        timingMode: config?.timingMode ?? 'sentence',
       },
       { status: 200 }
     );
@@ -77,8 +82,11 @@ export async function GET(
 
 /**
  * PUT /api/subtitles/[exerciseId]/time-adjustments
- * Replace the current user's timing overrides for this exercise.
- * Per-user, same scope as merge/skip config. Pass an empty array to clear.
+ * Update the current user's timing settings. Accepts any subset of:
+ * - adjustments: replace per-sentence overrides (empty array clears)
+ * - globalTimeOffsetMs: whole-video offset in milliseconds
+ * - timingMode: 'sentence' | 'global'
+ * Per-user, same scope as merge/skip config.
  */
 export async function PUT(
   request: NextRequest,
@@ -97,25 +105,59 @@ export async function PUT(
 
     const { exerciseId } = await params;
     const body = await request.json().catch(() => null);
-    const adjustments = normalizeAdjustments(body?.adjustments);
-    if (!adjustments) {
+
+    const hasAdjustments = body !== null && 'adjustments' in body;
+    const hasOffset = body !== null && 'globalTimeOffsetMs' in body;
+    const hasMode = body !== null && 'timingMode' in body;
+    if (!hasAdjustments && !hasOffset && !hasMode) {
       return NextResponse.json(
-        { error: 'Invalid adjustments: expected [{index, startSeconds?, endSeconds?}] with non-negative numbers' },
+        { error: 'Nothing to update: provide adjustments, globalTimeOffsetMs, or timingMode' },
         { status: 400 }
       );
     }
 
-    const exercise = await queryOne<Exercise>(
-      'SELECT * FROM Exercise WHERE exerciseId = ?',
-      [exerciseId]
-    );
-    if (!exercise) {
-      return NextResponse.json({ error: 'Exercise not found' }, { status: 404 });
+    let adjustments: SubtitleTimeAdjustment[] | null = null;
+    if (hasAdjustments) {
+      adjustments = normalizeAdjustments(body.adjustments);
+      if (!adjustments) {
+        return NextResponse.json(
+          { error: 'Invalid adjustments: expected [{index, startSeconds?, endSeconds?}] with non-negative numbers' },
+          { status: 400 }
+        );
+      }
     }
 
-    if (adjustments.length > 0) {
-      // Validate against the real subtitles: indices must exist and every
-      // adjusted sentence must keep 0 <= start < end <= video duration.
+    let offsetMs: number | null = null;
+    if (hasOffset) {
+      if (typeof body.globalTimeOffsetMs !== 'number' || !Number.isFinite(body.globalTimeOffsetMs)) {
+        return NextResponse.json(
+          { error: 'Invalid globalTimeOffsetMs: expected a finite number of milliseconds' },
+          { status: 400 }
+        );
+      }
+      offsetMs = Math.round(body.globalTimeOffsetMs);
+    }
+
+    let timingMode: TimingMode | null = null;
+    if (hasMode) {
+      if (!TIMING_MODES.includes(body.timingMode)) {
+        return NextResponse.json(
+          { error: `Invalid timingMode: expected one of ${TIMING_MODES.join(', ')}` },
+          { status: 400 }
+        );
+      }
+      timingMode = body.timingMode;
+    }
+
+    if (adjustments && adjustments.length > 0) {
+      // Validate against the real subtitles: referenced indices must exist.
+      const exercise = await queryOne<Exercise>(
+        'SELECT * FROM Exercise WHERE exerciseId = ?',
+        [exerciseId]
+      );
+      if (!exercise) {
+        return NextResponse.json({ error: 'Exercise not found' }, { status: 404 });
+      }
       let subtitles;
       try {
         const subtitleContent = await downloadFile(exercise.subtitleUrl);
@@ -147,7 +189,7 @@ export async function PUT(
       }
     }
 
-    // Upsert the user's config row; timing overrides live alongside the
+    // Upsert the user's config row; timing settings live alongside the
     // per-user merge/skip config.
     const existing = await queryOne<UserSubtitleConfig>(
       'SELECT configId FROM UserSubtitleConfig WHERE userId = ? AND exerciseId = ?',
@@ -156,22 +198,46 @@ export async function PUT(
 
     if (!existing) {
       await execute(
-        `INSERT INTO UserSubtitleConfig (configId, userId, exerciseId, mergedGroups, skippedSentences, timeAdjustments, effectiveSentenceCount, createdDate)
-         VALUES (?, ?, ?, '[]', '[]', ?, NULL, NOW())`,
-        [uuidv4(), session.userId, exerciseId, JSON.stringify(adjustments)]
+        `INSERT INTO UserSubtitleConfig (configId, userId, exerciseId, mergedGroups, skippedSentences, timeAdjustments, globalTimeOffsetMs, timingMode, effectiveSentenceCount, createdDate)
+         VALUES (?, ?, ?, '[]', '[]', ?, ?, ?, NULL, NOW())`,
+        [
+          uuidv4(),
+          session.userId,
+          exerciseId,
+          JSON.stringify(adjustments ?? []),
+          offsetMs ?? 0,
+          timingMode ?? 'sentence',
+        ]
       );
     } else {
+      const sets: string[] = ['updatedDate = NOW()'];
+      const params: Array<string | number> = [];
+      if (adjustments) {
+        sets.push('timeAdjustments = ?');
+        params.push(JSON.stringify(adjustments));
+      }
+      if (offsetMs !== null) {
+        sets.push('globalTimeOffsetMs = ?');
+        params.push(offsetMs);
+      }
+      if (timingMode) {
+        sets.push('timingMode = ?');
+        params.push(timingMode);
+      }
+      params.push(session.userId, exerciseId);
       await execute(
-        'UPDATE UserSubtitleConfig SET timeAdjustments = ?, updatedDate = NOW() WHERE userId = ? AND exerciseId = ?',
-        [JSON.stringify(adjustments), session.userId, exerciseId]
+        `UPDATE UserSubtitleConfig SET ${sets.join(', ')} WHERE userId = ? AND exerciseId = ?`,
+        params
       );
     }
 
     return NextResponse.json(
       {
         success: true,
-        message: 'Timing adjustments saved. They apply to your next playback.',
-        adjustments,
+        message: 'Timing settings saved. They apply to your next playback.',
+        adjustments: adjustments ?? undefined,
+        globalTimeOffsetMs: offsetMs ?? undefined,
+        timingMode: timingMode ?? undefined,
       },
       { status: 200 }
     );

@@ -50,6 +50,12 @@ interface VideoPlayerProps {
   /** Persist a boundary override for the current sentence (saves on the parent side). */
   onAdjustSentenceTime?: (field: 'start' | 'end', seconds: number) => void;
   onResetSentenceTime?: () => void;
+  /** Which timing adjustment is in effect; persisted per user. */
+  timingMode?: 'sentence' | 'global';
+  /** Whole-video offset in milliseconds; only applied while timingMode is 'global'. */
+  globalOffsetMs?: number;
+  onSetTimingMode?: (mode: 'sentence' | 'global') => void;
+  onSetGlobalOffset?: (offsetMs: number) => void;
 }
 
 export interface VideoPlayerRef {
@@ -70,6 +76,10 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
   isSentenceTimeAdjusted = false,
   onAdjustSentenceTime,
   onResetSentenceTime,
+  timingMode = 'sentence',
+  globalOffsetMs = 0,
+  onSetTimingMode,
+  onSetGlobalOffset,
 }: VideoPlayerProps, ref) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pendingSeekRef = useRef<number | null>(null);
@@ -482,6 +492,19 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
     return `${base}.${ms.toString().padStart(3, '0')}`;
   };
 
+  const formatOffset = (ms: number) =>
+    ms === 0 ? '0.000s' : `${ms > 0 ? '+' : '−'}${(Math.abs(ms) / 1000).toFixed(3)}s`;
+
+  // Derive the whole-video offset so the current sentence starts exactly at
+  // the playhead: offset' = offset + playhead − current start.
+  const handleMarkGlobalStart = () => {
+    const video = videoRef.current;
+    if (!video || !currentSubtitle || !onSetGlobalOffset) return;
+    onSetGlobalOffset(
+      Math.round(globalOffsetMs + (video.currentTime - currentSubtitle.startSeconds) * 1000)
+    );
+  };
+
   // One boundary row of the timing panel: nudge by 50ms or snap to the playhead.
   const renderTimingRow = (field: 'start' | 'end', seconds: number) => (
     <div className="flex items-center gap-2">
@@ -606,11 +629,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
                   {formatTime(currentSubtitle.startSeconds, true)} – {formatTime(currentSubtitle.endSeconds, true)}
                   {' '}({(currentSubtitle.endSeconds - currentSubtitle.startSeconds).toFixed(3)}s)
                 </span>
-                {onAdjustSentenceTime && (
+                {(onAdjustSentenceTime || onSetGlobalOffset) && (
                   <button
                     type="button"
                     aria-label="Adjust timing"
-                    title="Adjust this sentence's timing"
+                    title="Adjust timing"
                     onClick={() => setShowTimingTools((v) => !v)}
                     className={`rounded p-0.5 ${
                       showTimingTools
@@ -625,24 +648,96 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
             </div>
           )}
 
-          {/* Timing panel: adjust the current sentence's boundaries and save
-              them into the same per-user store as Customize Subtitles. */}
-          {showTimingTools && currentSubtitle && onAdjustSentenceTime && (
+          {/* Timing panel: per-sentence overrides OR a whole-video offset.
+              Both save into the same per-user store as Customize Subtitles;
+              the mode switch picks which one is in effect. */}
+          {showTimingTools && currentSubtitle && (onAdjustSentenceTime || onSetGlobalOffset) && (
             <div className="space-y-1.5 rounded bg-gray-800 px-3 py-2 text-xs text-gray-300">
-              {renderTimingRow('start', currentSubtitle.startSeconds)}
-              {renderTimingRow('end', currentSubtitle.endSeconds)}
-              {isSentenceTimeAdjusted && onResetSentenceTime && (
-                <div className="flex justify-end border-t border-gray-700 pt-1.5">
-                  <button
-                    type="button"
-                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-amber-400 hover:bg-gray-700 hover:text-amber-300"
-                    title="Reset to the subtitle file's original timing"
-                    onClick={onResetSentenceTime}
-                  >
-                    <Undo2 size={12} />
-                    Reset
-                  </button>
+              {onSetTimingMode && (
+                <div className="flex gap-1 border-b border-gray-700 pb-1.5">
+                  {(['sentence', 'global'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => onSetTimingMode(mode)}
+                      className={`rounded px-2 py-0.5 text-[11px] ${
+                        timingMode === mode
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                      }`}
+                      title={
+                        mode === 'sentence'
+                          ? 'Use per-sentence timing overrides'
+                          : 'Shift every sentence by one offset'
+                      }
+                    >
+                      {mode === 'sentence' ? 'Per-sentence' : 'Whole video'}
+                    </button>
+                  ))}
                 </div>
+              )}
+
+              {timingMode === 'sentence' && onAdjustSentenceTime && (
+                <>
+                  {renderTimingRow('start', currentSubtitle.startSeconds)}
+                  {renderTimingRow('end', currentSubtitle.endSeconds)}
+                  {isSentenceTimeAdjusted && onResetSentenceTime && (
+                    <div className="flex justify-end border-t border-gray-700 pt-1.5">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-amber-400 hover:bg-gray-700 hover:text-amber-300"
+                        title="Reset to the subtitle file's original timing"
+                        onClick={onResetSentenceTime}
+                      >
+                        <Undo2 size={12} />
+                        Reset
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {timingMode === 'global' && onSetGlobalOffset && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="w-9 shrink-0 text-gray-500">Offset</span>
+                    <span className="tabular-nums text-gray-200">{formatOffset(globalOffsetMs)}</span>
+                    <div className="ml-auto flex items-center gap-1">
+                      {[-50, -10, 10, 50].map((delta) => (
+                        <button
+                          key={delta}
+                          type="button"
+                          className="rounded px-1.5 py-0.5 text-[11px] text-gray-300 hover:bg-gray-700 hover:text-white"
+                          title={`Shift all subtitles ${Math.abs(delta)}ms ${delta > 0 ? 'later' : 'earlier'}`}
+                          onClick={() => onSetGlobalOffset(globalOffsetMs + delta)}
+                        >
+                          {delta > 0 ? `+${delta}` : `−${Math.abs(delta)}`}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="rounded px-1.5 py-0.5 text-[11px] text-gray-300 hover:bg-gray-700 hover:text-white"
+                        title="Set the offset so this sentence starts at the current playback position"
+                        onClick={handleMarkGlobalStart}
+                      >
+                        Mark start
+                      </button>
+                    </div>
+                  </div>
+                  {globalOffsetMs !== 0 && (
+                    <div className="flex justify-end border-t border-gray-700 pt-1.5">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-amber-400 hover:bg-gray-700 hover:text-amber-300"
+                        title="Clear the whole-video offset"
+                        onClick={() => onSetGlobalOffset(0)}
+                      >
+                        <Undo2 size={12} />
+                        Reset
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

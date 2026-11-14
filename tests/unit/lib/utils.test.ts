@@ -4,6 +4,7 @@ import {
   applyTimeAdjustments,
   applyLinkedTimeEdit,
   clearLinkedTimeEdit,
+  applyGlobalTimeOffset,
   formatSubtitleTimestamp,
   parseSubtitleTimestamp,
   SubtitleConfigInput,
@@ -321,5 +322,36 @@ describe('clearLinkedTimeEdit', () => {
   it('returns the list unchanged when the row is not found', () => {
     const current = [{ index: 5, startSeconds: 1 }];
     expect(clearLinkedTimeEdit(rows, 42, current)).toEqual(current);
+  });
+});
+
+describe('applyGlobalTimeOffset', () => {
+  it('returns subtitles unchanged when the offset is 0', () => {
+    const raw = makeSubtitles(3);
+    expect(applyGlobalTimeOffset(raw, 0)).toEqual(raw);
+  });
+
+  it('shifts every start/end by the offset and regenerates timestamps', () => {
+    const raw = makeSubtitles(3);
+    const result = applyGlobalTimeOffset(raw, 2000);
+
+    expect(result[0].startSeconds).toBe(2);
+    expect(result[0].endSeconds).toBe(6);
+    expect(result[2].startSeconds).toBe(12);
+    expect(result[2].endSeconds).toBe(16);
+    expect(result[0].startTime).toBe('00:00:02.000');
+    expect(result[0].endTime).toBe('00:00:06.000');
+  });
+
+  it('shifts earlier with a negative offset and clamps at 0', () => {
+    const raw = makeSubtitles(3);
+    const result = applyGlobalTimeOffset(raw, -7000);
+
+    expect(result[0].startSeconds).toBe(0);
+    expect(result[0].endSeconds).toBe(0);
+    expect(result[1].startSeconds).toBe(0);
+    expect(result[1].endSeconds).toBe(2);
+    expect(result[2].startSeconds).toBe(3);
+    expect(result[2].endSeconds).toBe(7);
   });
 });
